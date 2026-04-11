@@ -1,0 +1,47 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  backend:
+    build: ./backend
+    container_name: bangumi-helper-backend
+    restart: unless-stopped
+    volumes:
+      - bangumi-data:/app/data
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-me}
+      - DATABASE_URL=sqlite+aiosqlite:///./data/bangumi.db
+      - MIKAN_URL=${MIKAN_URL:-https://mikanani.me}
+      - MIKAN_USERNAME=${MIKAN_USERNAME:-}
+      - MIKAN_PASSWORD=${MIKAN_PASSWORD:-}
+      - PROXY=${PROXY:-}
+      - CORS_ORIGINS_STR=${CORS_ORIGINS_STR:-http://localhost:8081}
+      - REGISTRATION_MODE=${REGISTRATION_MODE:-open}
+    networks:
+      - bangumi-network
+    logging: *logging
+
+  frontend:
+    build: ./frontend
+    container_name: bangumi-helper-frontend
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    volumes:
+      - caddy-data:/data
+    depends_on:
+      - backend
+    networks:
+      - bangumi-network
+    logging: *logging
+
+volumes:
+  bangumi-data:
+  caddy-data:
+
+networks:
+  bangumi-network:
+    driver: bridge
