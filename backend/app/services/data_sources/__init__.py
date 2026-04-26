@@ -1,6 +1,6 @@
 from app.core.config import settings
-from app.services.data_sources.base import BaseDataSource
 from app.services.data_sources.bangumi_moe import BangumiMoeDataSource
+from app.services.data_sources.base import BaseDataSource
 from app.services.data_sources.dmhy import DmhyDataSource
 from app.services.data_sources.mikan import MikanDataSource
 

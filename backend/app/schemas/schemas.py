@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr
 
@@ -11,7 +10,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
-    invite_code: Optional[str] = None
+    invite_code: str | None = None
 
 
 class UserLogin(BaseModel):
@@ -35,17 +34,17 @@ class Token(BaseModel):
 
 
 class TokenPayload(BaseModel):
-    sub: Optional[int] = None
+    sub: int | None = None
 
 
 class EpisodeBase(BaseModel):
     title: str
     episode_number: int = 0
-    torrent_url: Optional[str] = None
-    magnet_url: Optional[str] = None
-    file_size: Optional[float] = None
-    subtitle_group: Optional[str] = None
-    publish_time: Optional[datetime] = None
+    torrent_url: str | None = None
+    magnet_url: str | None = None
+    file_size: float | None = None
+    subtitle_group: str | None = None
+    publish_time: datetime | None = None
 
 
 class EpisodeResponse(EpisodeBase):
@@ -60,12 +59,12 @@ class EpisodeResponse(EpisodeBase):
 class BangumiBase(BaseModel):
     name: str
     keyword: str
-    cover: Optional[str] = None
+    cover: str | None = None
     update_time: str = "Unknown"
     status: int = 0
     data_source: str = "mikan"
-    subtitle_groups: Optional[str] = None
-    description: Optional[str] = None
+    subtitle_groups: str | None = None
+    description: str | None = None
 
 
 class BangumiCreate(BangumiBase):
@@ -76,7 +75,7 @@ class BangumiResponse(BangumiBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    episodes: List[EpisodeResponse] = []
+    episodes: list[EpisodeResponse] = []
 
     class Config:
         from_attributes = True
@@ -94,8 +93,8 @@ class BangumiListResponse(BangumiBase):
 class SubscriptionBase(BaseModel):
     bangumi_id: int
     auto_download: bool = False
-    downloader_id: Optional[int] = None
-    save_path: Optional[str] = None
+    downloader_id: int | None = None
+    save_path: str | None = None
 
 
 class SubscriptionCreate(SubscriptionBase):
@@ -103,11 +102,11 @@ class SubscriptionCreate(SubscriptionBase):
 
 
 class SubscriptionUpdate(BaseModel):
-    status: Optional[int] = None
-    current_episode: Optional[int] = None
-    auto_download: Optional[bool] = None
-    downloader_id: Optional[int] = None
-    save_path: Optional[str] = None
+    status: int | None = None
+    current_episode: int | None = None
+    auto_download: bool | None = None
+    downloader_id: int | None = None
+    save_path: str | None = None
 
 
 class SubscriptionResponse(SubscriptionBase):
@@ -115,7 +114,7 @@ class SubscriptionResponse(SubscriptionBase):
     user_id: int
     status: int
     current_episode: int
-    rss_token: Optional[str] = None
+    rss_token: str | None = None
     created_at: datetime
     updated_at: datetime
     bangumi: BangumiResponse
@@ -126,12 +125,12 @@ class SubscriptionResponse(SubscriptionBase):
 
 class BangumiFilterBase(BaseModel):
     bangumi_name: str
-    include_keywords: Optional[str] = None
-    exclude_keywords: Optional[str] = None
-    subtitle_groups: Optional[str] = None
-    regex_pattern: Optional[str] = None
-    min_episode: Optional[int] = None
-    max_episode: Optional[int] = None
+    include_keywords: str | None = None
+    exclude_keywords: str | None = None
+    subtitle_groups: str | None = None
+    regex_pattern: str | None = None
+    min_episode: int | None = None
+    max_episode: int | None = None
 
 
 class BangumiFilterCreate(BangumiFilterBase):
@@ -139,12 +138,12 @@ class BangumiFilterCreate(BangumiFilterBase):
 
 
 class BangumiFilterUpdate(BaseModel):
-    include_keywords: Optional[str] = None
-    exclude_keywords: Optional[str] = None
-    subtitle_groups: Optional[str] = None
-    regex_pattern: Optional[str] = None
-    min_episode: Optional[int] = None
-    max_episode: Optional[int] = None
+    include_keywords: str | None = None
+    exclude_keywords: str | None = None
+    subtitle_groups: str | None = None
+    regex_pattern: str | None = None
+    min_episode: int | None = None
+    max_episode: int | None = None
 
 
 class BangumiFilterResponse(BangumiFilterBase):
@@ -162,10 +161,10 @@ class DownloaderConfigBase(BaseModel):
     downloader_type: str
     host: str
     port: int
-    username: Optional[str] = None
-    password: Optional[str] = None
-    rpc_url: Optional[str] = None
-    token: Optional[str] = None
+    username: str | None = None
+    password: str | None = None
+    rpc_url: str | None = None
+    token: str | None = None
     is_default: bool = False
 
 
@@ -174,15 +173,15 @@ class DownloaderConfigCreate(DownloaderConfigBase):
 
 
 class DownloaderConfigUpdate(BaseModel):
-    name: Optional[str] = None
-    downloader_type: Optional[str] = None
-    host: Optional[str] = None
-    port: Optional[int] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    rpc_url: Optional[str] = None
-    token: Optional[str] = None
-    is_default: Optional[bool] = None
+    name: str | None = None
+    downloader_type: str | None = None
+    host: str | None = None
+    port: int | None = None
+    username: str | None = None
+    password: str | None = None
+    rpc_url: str | None = None
+    token: str | None = None
+    is_default: bool | None = None
 
 
 class DownloaderConfigResponse(DownloaderConfigBase):
@@ -196,37 +195,37 @@ class DownloaderConfigResponse(DownloaderConfigBase):
 
 
 class DownloadRequest(BaseModel):
-    episode_ids: List[int]
-    downloader_id: Optional[int] = None
-    download_type: Optional[str] = "magnet"
+    episode_ids: list[int]
+    downloader_id: int | None = None
+    download_type: str | None = "magnet"
 
 
 class DownloadResponse(BaseModel):
     success: bool
     message: str
-    download_url: Optional[str] = None
+    download_url: str | None = None
 
 
 class CalendarResponse(BaseModel):
     weekday: str
-    bangumi_list: List[BangumiListResponse]
+    bangumi_list: list[BangumiListResponse]
 
 
 class SearchResult(BaseModel):
     title: str
     episode_number: int
-    torrent_url: Optional[str] = None
-    magnet_url: Optional[str] = None
-    subtitle_group: Optional[str] = None
-    publish_time: Optional[datetime] = None
-    file_size: Optional[float] = None
+    torrent_url: str | None = None
+    magnet_url: str | None = None
+    subtitle_group: str | None = None
+    publish_time: datetime | None = None
+    file_size: float | None = None
 
 
 class RSSFeedResponse(BaseModel):
     title: str
     link: str
     description: str
-    items: List[SearchResult]
+    items: list[SearchResult]
 
 
 class MessageResponse(BaseModel):
@@ -236,7 +235,7 @@ class MessageResponse(BaseModel):
 
 class InviteCodeCreate(BaseModel):
     max_uses: int = 1
-    expires_days: Optional[int] = None
+    expires_days: int | None = None
 
 
 class InviteCodeResponse(BaseModel):
@@ -246,9 +245,9 @@ class InviteCodeResponse(BaseModel):
     is_used: bool
     max_uses: int
     current_uses: int
-    expires_at: Optional[datetime]
+    expires_at: datetime | None
     created_at: datetime
-    used_at: Optional[datetime]
+    used_at: datetime | None
 
     class Config:
         from_attributes = True

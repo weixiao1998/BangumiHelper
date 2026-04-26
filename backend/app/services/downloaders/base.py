@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from app.models.models import DownloaderConfig
 
@@ -13,7 +12,7 @@ class BaseDownloader(ABC):
         pass
 
     @abstractmethod
-    async def add_download(self, url: str, save_path: Optional[str] = None) -> bool:
+    async def add_download(self, url: str, save_path: str | None = None) -> bool:
         pass
 
     @abstractmethod

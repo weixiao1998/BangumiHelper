@@ -1,13 +1,11 @@
 import re
 from datetime import datetime
-from typing import List, Optional
 from urllib.parse import urljoin
 
-import httpx
-from bs4 import BeautifulSoup
+import aiohttp
 
 from app.core.config import settings
-from app.services.data_sources.base import BaseDataSource, BangumiInfo, EpisodeInfo
+from app.services.data_sources.base import BangumiInfo, BaseDataSource, EpisodeInfo
 
 
 def parse_episode_number(title: str) -> int:
@@ -38,20 +36,25 @@ class BangumiMoeDataSource(BaseDataSource):
         super().__init__(proxy)
         self.base_url = settings.BANGUMI_MOE_URL.rstrip("/")
         self.api_url = f"{self.base_url}/api"
-        self.client = httpx.AsyncClient(
-            timeout=30.0,
-            proxy=proxy if proxy else None,
-            follow_redirects=True,
-        )
+        self._session: aiohttp.ClientSession | None = None
+
+    @property
+    def session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30),
+            )
+        return self._session
 
     async def _get_json(self, url: str, json_data: dict = None) -> dict:
         if json_data:
-            response = await self.client.post(url, json=json_data)
+            async with self.session.post(url, json=json_data) as response:
+                return await response.json()
         else:
-            response = await self.client.get(url)
-        return response.json()
+            async with self.session.get(url) as response:
+                return await response.json()
 
-    async def fetch_bangumi_calendar(self) -> List[BangumiInfo]:
+    async def fetch_bangumi_calendar(self) -> list[BangumiInfo]:
         url = f"{self.api_url}/bangumi/current"
 
         try:
@@ -85,7 +88,7 @@ class BangumiMoeDataSource(BaseDataSource):
         except Exception:
             return []
 
-    async def fetch_single_bangumi(self, bangumi_id: str) -> Optional[BangumiInfo]:
+    async def fetch_single_bangumi(self, bangumi_id: str) -> BangumiInfo | None:
         url = f"{self.api_url}/bangumi/{bangumi_id}"
 
         try:
@@ -110,7 +113,7 @@ class BangumiMoeDataSource(BaseDataSource):
         except Exception:
             return None
 
-    async def fetch_episode_of_bangumi(self, bangumi_id: str, max_page: int = 3) -> List[EpisodeInfo]:
+    async def fetch_episode_of_bangumi(self, bangumi_id: str, max_page: int = 3) -> list[EpisodeInfo]:
         url = f"{self.api_url}/torrent/search"
         episodes = []
 
@@ -156,7 +159,7 @@ class BangumiMoeDataSource(BaseDataSource):
 
         return episodes
 
-    async def search_by_keyword(self, keyword: str, count: int = 3) -> List[EpisodeInfo]:
+    async def search_by_keyword(self, keyword: str, count: int = 3) -> list[EpisodeInfo]:
         url = f"{self.api_url}/torrent/search"
         episodes = []
 
@@ -203,4 +206,5 @@ class BangumiMoeDataSource(BaseDataSource):
         return episodes
 
     async def close(self):
-        await self.client.aclose()
+        if self._session and not self._session.closed:
+            await self._session.close()

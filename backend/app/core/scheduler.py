@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -7,7 +6,7 @@ from loguru import logger
 
 from app.core.config import settings
 from app.core.database import async_session_maker
-from app.services.data_sources import get_data_source, get_available_data_sources
+from app.services.data_sources import get_available_data_sources, get_data_source
 
 scheduler: AsyncIOScheduler | None = None
 
@@ -22,6 +21,7 @@ async def refresh_bangumi_calendar():
                 bangumi_list = await source.fetch_bangumi_calendar()
 
                 from sqlalchemy import select
+
                 from app.models.models import Bangumi
 
                 for info in bangumi_list:

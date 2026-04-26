@@ -1,4 +1,4 @@
-import httpx
+import aiohttp
 from loguru import logger
 
 from app.models.models import DownloaderConfig
@@ -10,18 +10,26 @@ class Aria2Downloader(BaseDownloader):
         super().__init__(config)
         self.rpc_url = config.rpc_url or f"http://{config.host}:{config.port}/rpc"
         self.token = config.token or ""
+        self._session: aiohttp.ClientSession | None = None
+
+    @property
+    def session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30),
+            )
+        return self._session
 
     async def _call_rpc(self, method: str, params: list = None) -> dict:
-        async with httpx.AsyncClient() as client:
-            payload = {
-                "jsonrpc": "2.0",
-                "id": "bangumi-helper",
-                "method": method,
-                "params": [f"token:{self.token}"] + (params or []),
-            }
+        payload = {
+            "jsonrpc": "2.0",
+            "id": "bangumi-helper",
+            "method": method,
+            "params": [f"token:{self.token}"] + (params or []),
+        }
 
-            response = await client.post(self.rpc_url, json=payload)
-            return response.json()
+        async with self.session.post(self.rpc_url, json=payload) as response:
+            return await response.json()
 
     async def test_connection(self) -> bool:
         try:
@@ -89,3 +97,7 @@ class Aria2Downloader(BaseDownloader):
         except Exception as e:
             logger.error(f"Aria2 get downloads failed: {e}")
             return []
+
+    async def close(self):
+        if self._session and not self._session.closed:
+            await self._session.close()

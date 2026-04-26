@@ -35,22 +35,22 @@ async def create_invite_code(
     current_user: User = Depends(get_current_active_user),
 ):
     code = generate_invite_code()
-    
+
     expires_at = None
     if code_create.expires_days:
         expires_at = datetime.now() + timedelta(days=code_create.expires_days)
-    
+
     invite_code = InviteCode(
         code=code,
         created_by=current_user.id,
         max_uses=code_create.max_uses,
         expires_at=expires_at,
     )
-    
+
     session.add(invite_code)
     await session.commit()
     await session.refresh(invite_code)
-    
+
     return invite_code
 
 
@@ -66,11 +66,11 @@ async def delete_invite_code(
         )
     )
     invite_code = result.scalar_one_or_none()
-    
+
     if not invite_code:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="邀请码不存在")
-    
+
     await session.delete(invite_code)
     await session.commit()
-    
+
     return MessageResponse(message="邀请码删除成功")

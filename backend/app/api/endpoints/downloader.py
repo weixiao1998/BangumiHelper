@@ -1,21 +1,28 @@
-from typing import List
 import secrets
+from datetime import UTC
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from feedgenerator import Rss201rev2Feed
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from feedgen.feed import FeedGenerator
 
 from app.api.endpoints.auth import get_current_active_user
 from app.core.database import get_async_session
 from app.models.models import DownloaderConfig, Episode, Subscription, User
-from app.schemas import DownloaderConfigCreate, DownloaderConfigResponse, DownloaderConfigUpdate, DownloadRequest, DownloadResponse, MessageResponse
+from app.schemas import (
+    DownloaderConfigCreate,
+    DownloaderConfigResponse,
+    DownloaderConfigUpdate,
+    DownloadRequest,
+    DownloadResponse,
+    MessageResponse,
+)
 from app.services.downloaders import get_downloader
 
 router = APIRouter()
 
 
-@router.get("", response_model=List[DownloaderConfigResponse])
+@router.get("", response_model=list[DownloaderConfigResponse])
 async def get_downloaders(
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_active_user),
@@ -35,7 +42,7 @@ async def create_downloader(
             select(DownloaderConfig)
             .where(DownloaderConfig.user_id == current_user.id, DownloaderConfig.is_default == True)
         )).scalars().all()
-        
+
         for d in existing_default:
             d.is_default = False
 
@@ -210,8 +217,9 @@ async def get_rss_feed(
 ):
     from fastapi.responses import Response
     from sqlalchemy.orm import selectinload
+
     from app.models.models import Bangumi
-    
+
     result = await session.execute(
         select(Subscription)
         .options(selectinload(Subscription.bangumi).selectinload(Bangumi.episodes))
@@ -224,44 +232,47 @@ async def get_rss_feed(
 
     episodes = subscription.bangumi.episodes
 
-    fg = FeedGenerator()
-    fg.id(f"bangumi-{subscription.bangumi.id}")
-    fg.title(f"{subscription.bangumi.name} - BangumiHelper")
-    fg.link(href="https://example.com", rel="alternate")
-    fg.description("番剧订阅RSS")
+    feed = Rss201rev2Feed(
+        title=f"{subscription.bangumi.name} - BangumiHelper",
+        link="https://example.com",
+        description="番剧订阅RSS",
+    )
 
     for ep in episodes:
-        link = ep.magnet_url or ep.torrent_url or ""
-        fe = fg.add_entry()
-        fe.guid(f"episode-{ep.id}", permalink=False)
-        fe.title(ep.title)
-        
         description_parts = [f"第 {ep.episode_number} 集"]
         if ep.file_size:
             size_mb = ep.file_size / (1024 * 1024)
             description_parts.append(f"[{size_mb:.2f} MB]")
         if ep.subtitle_group:
             description_parts.append(f"字幕组: {ep.subtitle_group}")
-        fe.description(" ".join(description_parts))
-        
-        if ep.torrent_url:
-            fe.enclosure(
-                url=ep.torrent_url,
-                length=int(ep.file_size) if ep.file_size else 0,
-                type="application/x-bittorrent"
-            )
-        elif ep.magnet_url:
-            fe.link(href=ep.magnet_url)
-        
+
+        link = ep.magnet_url or ep.torrent_url or ""
+
+        pubdate = None
         if ep.publish_time:
-            from datetime import timezone
             if ep.publish_time.tzinfo is None:
-                pubdate = ep.publish_time.replace(tzinfo=timezone.utc)
+                pubdate = ep.publish_time.replace(tzinfo=UTC)
             else:
                 pubdate = ep.publish_time
-            fe.pubdate(pubdate)
 
-    rss_content = fg.rss_str(pretty=True).decode("utf-8")
+        enclosure = None
+        if ep.torrent_url:
+            enclosure = {
+                "url": ep.torrent_url,
+                "length": int(ep.file_size) if ep.file_size else 0,
+                "mime_type": "application/x-bittorrent",
+            }
+
+        feed.add_item(
+            title=ep.title,
+            link=link,
+            description=" ".join(description_parts),
+            unique_id=f"episode-{ep.id}",
+            pubdate=pubdate,
+            enclosure=enclosure,
+        )
+
+    rss_content = feed.writeString("utf-8")
 
     return Response(content=rss_content, media_type="application/xml")
 
@@ -274,7 +285,7 @@ async def regenerate_rss_token(
 ):
     result = await session.execute(
         select(Subscription).where(
-            Subscription.id == subscription_id, 
+            Subscription.id == subscription_id,
             Subscription.user_id == current_user.id
         )
     )

@@ -1,4 +1,3 @@
-from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -14,7 +13,7 @@ from app.services.data_sources import get_data_source
 router = APIRouter()
 
 
-@router.get("/calendar", response_model=List[CalendarResponse])
+@router.get("/calendar", response_model=list[CalendarResponse])
 async def get_calendar(
     data_source: str = Query(default="mikan", description="数据源"),
     session: AsyncSession = Depends(get_async_session),
@@ -30,7 +29,7 @@ async def get_calendar(
     )
     subscriptions = {sub.bangumi.name: sub for sub in result.scalars().all()}
 
-    weekday_map: Dict[str, List[BangumiListResponse]] = {}
+    weekday_map: dict[str, list[BangumiListResponse]] = {}
     for bangumi in db_bangumi_list:
         sub = subscriptions.get(bangumi.name)
         bangumi_response = BangumiListResponse(
@@ -57,7 +56,7 @@ async def get_calendar(
     return calendar
 
 
-@router.get("/search", response_model=List[SearchResult])
+@router.get("/search", response_model=list[SearchResult])
 async def search_bangumi(
     keyword: str = Query(..., description="搜索关键词"),
     data_source: str = Query(default="mikan", description="数据源"),
@@ -113,7 +112,7 @@ async def get_bangumi_detail(
     if not bangumi.episodes:
         source = get_data_source(data_source)
         episode_infos = await source.fetch_episode_of_bangumi(bangumi.keyword, max_page=1)
-        
+
         for info in episode_infos:
             episode = Episode(
                 bangumi_id=bangumi.id,
@@ -126,7 +125,7 @@ async def get_bangumi_detail(
                 publish_time=info.publish_time,
             )
             session.add(episode)
-        
+
         await session.commit()
         await session.refresh(bangumi, ["episodes"])
 
@@ -182,7 +181,7 @@ async def refresh_bangumi_episodes(
     return MessageResponse(message=f"剧集刷新成功，新增 {added_count} 集，更新 {updated_count} 集")
 
 
-@router.get("/{bangumi_id}/episodes", response_model=List[SearchResult])
+@router.get("/{bangumi_id}/episodes", response_model=list[SearchResult])
 async def get_bangumi_episodes(
     bangumi_id: int,
     max_page: int = Query(default=3, description="最大抓取页数"),

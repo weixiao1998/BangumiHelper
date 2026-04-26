@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,24 +9,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 class EpisodeInfo:
     title: str
     episode_number: int
-    magnet_url: Optional[str] = None
-    torrent_url: Optional[str] = None
-    file_size: Optional[float] = None
-    subtitle_group: Optional[str] = None
-    publish_time: Optional[datetime] = None
+    magnet_url: str | None = None
+    torrent_url: str | None = None
+    file_size: float | None = None
+    subtitle_group: str | None = None
+    publish_time: datetime | None = None
 
 
 @dataclass
 class BangumiInfo:
     name: str
     keyword: str
-    cover: Optional[str] = None
+    cover: str | None = None
     update_time: str = "Unknown"
     status: int = 0
     data_source: str = "unknown"
-    subtitle_groups: Optional[str] = None
-    description: Optional[str] = None
-    episodes: List[EpisodeInfo] = None
+    subtitle_groups: str | None = None
+    description: str | None = None
+    episodes: list[EpisodeInfo] = None
 
     def __post_init__(self):
         if self.episodes is None:
@@ -45,22 +44,22 @@ class BaseDataSource(ABC):
         self.proxy = proxy
 
     @abstractmethod
-    async def fetch_bangumi_calendar(self) -> List[BangumiInfo]:
+    async def fetch_bangumi_calendar(self) -> list[BangumiInfo]:
         pass
 
     @abstractmethod
-    async def fetch_single_bangumi(self, bangumi_id: str) -> Optional[BangumiInfo]:
+    async def fetch_single_bangumi(self, bangumi_id: str) -> BangumiInfo | None:
         pass
 
     @abstractmethod
-    async def fetch_episode_of_bangumi(self, bangumi_id: str, max_page: int = 3) -> List[EpisodeInfo]:
+    async def fetch_episode_of_bangumi(self, bangumi_id: str, max_page: int = 3) -> list[EpisodeInfo]:
         pass
 
     @abstractmethod
-    async def search_by_keyword(self, keyword: str, count: int = 3) -> List[EpisodeInfo]:
+    async def search_by_keyword(self, keyword: str, count: int = 3) -> list[EpisodeInfo]:
         pass
 
-    async def fetch_and_save_bangumi(self, session: AsyncSession) -> List[BangumiInfo]:
+    async def fetch_and_save_bangumi(self, session: AsyncSession) -> list[BangumiInfo]:
         from app.models.models import Bangumi
 
         bangumi_list = await self.fetch_bangumi_calendar()

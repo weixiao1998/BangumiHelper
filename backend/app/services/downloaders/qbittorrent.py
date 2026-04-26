@@ -1,4 +1,3 @@
-from typing import Optional
 
 import qbittorrentapi
 from loguru import logger
@@ -10,7 +9,7 @@ from app.services.downloaders.base import BaseDownloader
 class QBittorrentDownloader(BaseDownloader):
     def __init__(self, config: DownloaderConfig):
         super().__init__(config)
-        self.client: Optional[qbittorrentapi.Client] = None
+        self.client: qbittorrentapi.Client | None = None
 
     async def _get_client(self) -> qbittorrentapi.Client:
         if self.client is None:

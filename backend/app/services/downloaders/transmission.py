@@ -1,4 +1,3 @@
-from typing import Optional
 
 import transmission_rpc
 from loguru import logger
@@ -10,7 +9,7 @@ from app.services.downloaders.base import BaseDownloader
 class TransmissionDownloader(BaseDownloader):
     def __init__(self, config: DownloaderConfig):
         super().__init__(config)
-        self.client: Optional[transmission_rpc.Client] = None
+        self.client: transmission_rpc.Client | None = None
 
     async def _get_client(self) -> transmission_rpc.Client:
         if self.client is None:

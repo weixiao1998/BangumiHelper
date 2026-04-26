@@ -1,14 +1,13 @@
 import re
 from datetime import datetime
-from typing import List, Optional
 from urllib.parse import urljoin
 
-import httpx
+import aiohttp
 from bs4 import BeautifulSoup
 
 from app.core.config import settings
 from app.core.utils import beijing_to_utc
-from app.services.data_sources.base import BaseDataSource, BangumiInfo, EpisodeInfo
+from app.services.data_sources.base import BangumiInfo, BaseDataSource, EpisodeInfo
 
 CN_WEEK_MAP = {
     "星期日": "Sun",
@@ -62,26 +61,34 @@ class MikanDataSource(BaseDataSource):
         super().__init__(proxy)
         self.base_url = settings.MIKAN_URL.rstrip("/")
         self.login_url = f"{self.base_url}/Account/Login"
-        self.client = httpx.AsyncClient(
-            timeout=30.0,
-            proxy=proxy if proxy else None,
-            follow_redirects=True,
-        )
+        self._session: aiohttp.ClientSession | None = None
+        self._proxy = proxy
+
+    @property
+    def session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            connector = aiohttp.TCPConnector()
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30),
+                connector=connector,
+            )
+        return self._session
 
     async def _login(self):
         if not settings.MIKAN_USERNAME or not settings.MIKAN_PASSWORD:
             return
 
-        response = await self.client.get(self.login_url)
-        soup = BeautifulSoup(response.text, "lxml")
-        token_input = soup.find("input", attrs={"name": "__RequestVerificationToken"})
+        async with self.session.get(self.login_url) as response:
+            text = await response.text()
+            soup = BeautifulSoup(text, "lxml")
+            token_input = soup.find("input", attrs={"name": "__RequestVerificationToken"})
 
-        if not token_input:
-            return
+            if not token_input:
+                return
 
-        token = token_input.get("value")
+            token = token_input.get("value")
 
-        await self.client.post(
+        await self.session.post(
             self.login_url,
             data={
                 "UserName": settings.MIKAN_USERNAME,
@@ -92,13 +99,15 @@ class MikanDataSource(BaseDataSource):
         )
 
     async def _get_page(self, url: str, params: dict = None) -> str:
-        response = await self.client.get(url, params=params)
-        if "退出" not in response.text and settings.MIKAN_USERNAME:
-            await self._login()
-            response = await self.client.get(url, params=params)
-        return response.text
+        async with self.session.get(url, params=params) as response:
+            text = await response.text()
+            if "退出" not in text and settings.MIKAN_USERNAME:
+                await self._login()
+                async with self.session.get(url, params=params) as resp:
+                    text = await resp.text()
+            return text
 
-    async def fetch_bangumi_calendar(self) -> List[BangumiInfo]:
+    async def fetch_bangumi_calendar(self) -> list[BangumiInfo]:
         html = await self._get_page(self.base_url)
         soup = BeautifulSoup(html, "lxml")
 
@@ -137,7 +146,7 @@ class MikanDataSource(BaseDataSource):
 
         return bangumi_list
 
-    async def fetch_single_bangumi(self, bangumi_id: str) -> Optional[BangumiInfo]:
+    async def fetch_single_bangumi(self, bangumi_id: str) -> BangumiInfo | None:
         url = f"{self.base_url}/Home/Bangumi/{bangumi_id}"
         html = await self._get_page(url)
         soup = BeautifulSoup(html, "lxml")
@@ -189,7 +198,7 @@ class MikanDataSource(BaseDataSource):
             episodes=episodes,
         )
 
-    async def _parse_episodes(self, html: str, bangumi_id: str, subtitle_group_map: dict = None) -> List[EpisodeInfo]:
+    async def _parse_episodes(self, html: str, bangumi_id: str, subtitle_group_map: dict = None) -> list[EpisodeInfo]:
         soup = BeautifulSoup(html, "lxml")
         episodes = []
 
@@ -257,11 +266,11 @@ class MikanDataSource(BaseDataSource):
 
         return episodes
 
-    async def fetch_episode_of_bangumi(self, bangumi_id: str, max_page: int = 3) -> List[EpisodeInfo]:
+    async def fetch_episode_of_bangumi(self, bangumi_id: str, max_page: int = 3) -> list[EpisodeInfo]:
         bangumi = await self.fetch_single_bangumi(bangumi_id)
         return bangumi.episodes if bangumi else []
 
-    async def search_by_keyword(self, keyword: str, count: int = 3) -> List[EpisodeInfo]:
+    async def search_by_keyword(self, keyword: str, count: int = 3) -> list[EpisodeInfo]:
         url = f"{self.base_url}/Home/Search"
         html = await self._get_page(url, params={"searchstr": keyword})
         soup = BeautifulSoup(html, "lxml")
@@ -311,4 +320,5 @@ class MikanDataSource(BaseDataSource):
         return episodes
 
     async def close(self):
-        await self.client.aclose()
+        if self._session and not self._session.closed:
+            await self._session.close()

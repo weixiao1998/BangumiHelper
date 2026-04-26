@@ -1,4 +1,3 @@
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -21,7 +20,7 @@ from app.schemas import (
 router = APIRouter()
 
 
-@router.get("", response_model=List[SubscriptionResponse])
+@router.get("", response_model=list[SubscriptionResponse])
 async def get_subscriptions(
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_active_user),

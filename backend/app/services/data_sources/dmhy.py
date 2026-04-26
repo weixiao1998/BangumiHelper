@@ -1,15 +1,12 @@
 import re
-import time
 from datetime import datetime
-from typing import List, Optional
-from urllib.parse import urljoin
 
-import httpx
+import aiohttp
 from bs4 import BeautifulSoup
 
 from app.core.config import settings
 from app.core.utils import beijing_to_utc
-from app.services.data_sources.base import BaseDataSource, BangumiInfo, EpisodeInfo
+from app.services.data_sources.base import BangumiInfo, BaseDataSource, EpisodeInfo
 
 
 def parse_episode_number(title: str) -> int:
@@ -39,17 +36,21 @@ class DmhyDataSource(BaseDataSource):
     def __init__(self, proxy: str = ""):
         super().__init__(proxy)
         self.base_url = settings.DMHY_URL.rstrip("/")
-        self.client = httpx.AsyncClient(
-            timeout=30.0,
-            proxy=proxy if proxy else None,
-            follow_redirects=True,
-        )
+        self._session: aiohttp.ClientSession | None = None
+
+    @property
+    def session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30),
+            )
+        return self._session
 
     async def _get_page(self, url: str, params: dict = None) -> str:
-        response = await self.client.get(url, params=params)
-        return response.text
+        async with self.session.get(url, params=params) as response:
+            return await response.text()
 
-    async def fetch_bangumi_calendar(self) -> List[BangumiInfo]:
+    async def fetch_bangumi_calendar(self) -> list[BangumiInfo]:
         url = f"{self.base_url}/topics/list"
         html = await self._get_page(url, params={"sort_id": 2})
         soup = BeautifulSoup(html, "lxml")
@@ -85,7 +86,7 @@ class DmhyDataSource(BaseDataSource):
 
         return list(bangumi_map.values())
 
-    def _extract_bangumi_name(self, title: str) -> Optional[str]:
+    def _extract_bangumi_name(self, title: str) -> str | None:
         patterns = [
             r"【([^】]+)】",
             r"\[([^\]]+)\]",
@@ -101,7 +102,7 @@ class DmhyDataSource(BaseDataSource):
 
         return None
 
-    async def fetch_single_bangumi(self, bangumi_id: str) -> Optional[BangumiInfo]:
+    async def fetch_single_bangumi(self, bangumi_id: str) -> BangumiInfo | None:
         episodes = await self.search_by_keyword(bangumi_id)
         if not episodes:
             return None
@@ -114,10 +115,10 @@ class DmhyDataSource(BaseDataSource):
             episodes=episodes,
         )
 
-    async def fetch_episode_of_bangumi(self, bangumi_id: str, max_page: int = 3) -> List[EpisodeInfo]:
+    async def fetch_episode_of_bangumi(self, bangumi_id: str, max_page: int = 3) -> list[EpisodeInfo]:
         return await self.search_by_keyword(bangumi_id, max_page)
 
-    async def search_by_keyword(self, keyword: str, count: int = 3) -> List[EpisodeInfo]:
+    async def search_by_keyword(self, keyword: str, count: int = 3) -> list[EpisodeInfo]:
         episodes = []
 
         for page in range(1, count + 1):
@@ -170,7 +171,7 @@ class DmhyDataSource(BaseDataSource):
 
         return episodes
 
-    def _parse_file_size(self, size_str: str) -> Optional[float]:
+    def _parse_file_size(self, size_str: str) -> float | None:
         match = re.search(r"([\d.]+)\s*(MiB|GiB|MB|GB)", size_str, re.IGNORECASE)
         if match:
             size = float(match.group(1))
@@ -184,4 +185,5 @@ class DmhyDataSource(BaseDataSource):
         return None
 
     async def close(self):
-        await self.client.aclose()
+        if self._session and not self._session.closed:
+            await self._session.close()

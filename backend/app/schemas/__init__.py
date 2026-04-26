@@ -14,7 +14,6 @@ from app.schemas.schemas import (
     DownloaderConfigUpdate,
     DownloadRequest,
     DownloadResponse,
-    DownloadResponse,
     EpisodeBase,
     EpisodeResponse,
     InviteCodeCreate,

@@ -13,7 +13,7 @@ from app.core.scheduler import start_scheduler, stop_scheduler
 
 def run_migrations():
     result = subprocess.run(
-        ["alembic", "upgrade", "head"],
+        [".venv/bin/alembic", "upgrade", "head"],
         capture_output=True,
         text=True
     )

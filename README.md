@@ -15,7 +15,7 @@
 
 | 组件 | 技术 |
 |------|------|
-| 后端 | FastAPI + Python 3.13 + SQLAlchemy + SQLite |
+| 后端 | FastAPI + Python 3.14 + SQLAlchemy + SQLite + uv |
 | 前端 | Vue 3 + Vite + Element Plus + TypeScript |
 | 部署 | Docker + Docker Compose |
 
@@ -36,7 +36,7 @@ cp .env.example .env
 docker compose up -d --build
 
 # 4. 访问网站
-# http://localhost
+# http://localhost:8081
 ```
 
 ### 方式二：本地开发
@@ -46,20 +46,17 @@ docker compose up -d --build
 ```bash
 cd backend
 
-# 创建虚拟环境
-python3 -m venv venv
-source venv/bin/activate  # Linux/macOS
-# venv\Scripts\activate   # Windows
-
-# 安装依赖
-pip install -e .
+# 创建虚拟环境并安装依赖（使用 uv）
+uv venv --python 3.14
+source .venv/bin/activate  # Linux/macOS
+uv sync --extra dev
 
 # 配置环境变量
 export SECRET_KEY="your-secret-key"
 export DATABASE_URL="sqlite+aiosqlite:///./data/bangumi.db"
 
 # 启动服务
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 #### 前端
@@ -159,10 +156,10 @@ BangumiHelper/
 ```bash
 # 后端
 cd backend
-pip install -e ".[dev]"     # 安装开发依赖
-pytest                      # 运行测试
-ruff check .                # 代码检查
-mypy .                      # 类型检查
+uv sync --extra dev         # 安装依赖（含开发依赖）
+uv run pytest               # 运行测试
+uv run ruff check . --fix   # 代码检查 + 自动修复
+uv run mypy .               # 类型检查
 
 # 前端
 cd frontend

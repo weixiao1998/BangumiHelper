@@ -1,4 +1,4 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -9,8 +9,8 @@ from app.core.config import settings
 from app.core.constants import RegistrationMode
 from app.core.database import get_async_session
 from app.core.security import create_access_token, get_password_hash, verify_password
-from app.models.models import User, InviteCode
-from app.schemas import Token, UserCreate, UserResponse, RegistrationConfigResponse
+from app.models.models import InviteCode, User
+from app.schemas import RegistrationConfigResponse, Token, UserCreate, UserResponse
 
 router = APIRouter()
 
@@ -72,18 +72,18 @@ async def register(
     if settings.REGISTRATION_MODE == RegistrationMode.INVITE_ONLY:
         if not user_create.invite_code:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="需要邀请码才能注册")
-        
+
         result = await session.execute(
             select(InviteCode).where(InviteCode.code == user_create.invite_code)
         )
         invite_code = result.scalar_one_or_none()
-        
+
         if not invite_code:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="无效的邀请码")
-        
+
         if invite_code.is_used and invite_code.current_uses >= invite_code.max_uses:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="邀请码已使用完毕")
-        
+
         if invite_code.expires_at and invite_code.expires_at < datetime.now():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="邀请码已过期")
 
