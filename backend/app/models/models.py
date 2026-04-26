@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.utils import utc_now
 
 
 class User(Base):
@@ -16,8 +17,8 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
     subscriptions: Mapped[List["Subscription"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     downloaders: Mapped[List["DownloaderConfig"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -36,8 +37,8 @@ class Bangumi(Base):
     data_source: Mapped[str] = mapped_column(String(50), default="mikan")
     subtitle_groups: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
     episodes: Mapped[List["Episode"]] = relationship(back_populates="bangumi", cascade="all, delete-orphan")
     subscriptions: Mapped[List["Subscription"]] = relationship(back_populates="bangumi", cascade="all, delete-orphan")
@@ -55,7 +56,7 @@ class Episode(Base):
     file_size: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     subtitle_group: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     publish_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     bangumi: Mapped["Bangumi"] = relationship(back_populates="episodes")
 
@@ -72,8 +73,8 @@ class Subscription(Base):
     downloader_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("downloader_configs.id"), nullable=True)
     save_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     rss_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
     user: Mapped["User"] = relationship(back_populates="subscriptions")
     bangumi: Mapped["Bangumi"] = relationship(back_populates="subscriptions")
@@ -92,8 +93,8 @@ class BangumiFilter(Base):
     regex_pattern: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     min_episode: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     max_episode: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
     user: Mapped["User"] = relationship(back_populates="filters")
 
@@ -112,8 +113,8 @@ class DownloaderConfig(Base):
     rpc_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
     user: Mapped["User"] = relationship(back_populates="downloaders")
     subscriptions: Mapped[List["Subscription"]] = relationship(back_populates="downloader")
@@ -127,7 +128,7 @@ class DownloadHistory(Base):
     episode_id: Mapped[int] = mapped_column(Integer, ForeignKey("episodes.id", ondelete="CASCADE"), nullable=False)
     downloader_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("downloader_configs.id"), nullable=True)
     status: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
 
 class SubtitleGroup(Base):
@@ -137,7 +138,7 @@ class SubtitleGroup(Base):
     source_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     data_source: Mapped[str] = mapped_column(String(50), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
 
 class InviteCode(Base):
@@ -151,7 +152,7 @@ class InviteCode(Base):
     max_uses: Mapped[int] = mapped_column(Integer, default=1)
     current_uses: Mapped[int] = mapped_column(Integer, default=0)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     creator: Mapped["User"] = relationship(foreign_keys=[created_by])

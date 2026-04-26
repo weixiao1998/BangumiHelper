@@ -7,6 +7,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from app.core.config import settings
+from app.core.utils import beijing_to_utc
 from app.services.data_sources.base import BaseDataSource, BangumiInfo, EpisodeInfo
 
 CN_WEEK_MAP = {
@@ -232,7 +233,8 @@ class MikanDataSource(BaseDataSource):
                     if len(tds) >= 4:
                         time_str = tds[3].text.strip()
                         try:
-                            publish_time = datetime.strptime(time_str, "%Y/%m/%d %H:%M")
+                            dt = datetime.strptime(time_str, "%Y/%m/%d %H:%M")
+                            publish_time = beijing_to_utc(dt)
                         except ValueError:
                             pass
 
@@ -289,7 +291,8 @@ class MikanDataSource(BaseDataSource):
                 if len(tds) >= 4:
                     time_str = tds[3].text.strip()
                     try:
-                        publish_time = datetime.strptime(time_str, "%Y/%m/%d %H:%M")
+                        dt = datetime.strptime(time_str, "%Y/%m/%d %H:%M")
+                        publish_time = beijing_to_utc(dt)
                     except ValueError:
                         pass
 

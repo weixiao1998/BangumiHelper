@@ -8,6 +8,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from app.core.config import settings
+from app.core.utils import beijing_to_utc
 from app.services.data_sources.base import BaseDataSource, BangumiInfo, EpisodeInfo
 
 
@@ -143,7 +144,8 @@ class DmhyDataSource(BaseDataSource):
                     if date_elem:
                         date_str = date_elem.text.strip()
                         try:
-                            publish_time = datetime.strptime(date_str, "%Y/%m/%d")
+                            dt = datetime.strptime(date_str, "%Y/%m/%d")
+                            publish_time = beijing_to_utc(dt)
                         except ValueError:
                             pass
 

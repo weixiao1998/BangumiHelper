@@ -36,7 +36,7 @@
       <el-table-column prop="subtitle_group" label="字幕组" width="150" />
       <el-table-column label="发布时间" width="180">
         <template #default="{ row }">
-          {{ row.publish_time ? dayjs(row.publish_time).format('YYYY-MM-DD HH:mm') : '-' }}
+          {{ row.publish_time ? dayjs.utc(row.publish_time).local().format('YYYY-MM-DD HH:mm') : '-' }}
         </template>
       </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
