@@ -22,6 +22,7 @@ class User(Base):
     subscriptions: Mapped[list[Subscription]] = relationship(back_populates="user", cascade="all, delete-orphan")
     downloaders: Mapped[list[DownloaderConfig]] = relationship(back_populates="user", cascade="all, delete-orphan")
     filters: Mapped[list[BangumiFilter]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    global_filter: Mapped[GlobalFilter | None] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 
 class Bangumi(Base):
@@ -78,6 +79,7 @@ class Subscription(Base):
     user: Mapped[User] = relationship(back_populates="subscriptions")
     bangumi: Mapped[Bangumi] = relationship(back_populates="subscriptions")
     downloader: Mapped[DownloaderConfig | None] = relationship(back_populates="subscriptions")
+    filter: Mapped[BangumiFilter | None] = relationship(back_populates="subscription", uselist=False, cascade="all, delete-orphan")
 
 
 class BangumiFilter(Base):
@@ -85,6 +87,7 @@ class BangumiFilter(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id", ondelete="CASCADE"), unique=True, nullable=False)
     bangumi_name: Mapped[str] = mapped_column(String(255), nullable=False)
     include_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
     exclude_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -96,6 +99,24 @@ class BangumiFilter(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
     user: Mapped[User] = relationship(back_populates="filters")
+    subscription: Mapped[Subscription] = relationship(back_populates="filter")
+
+
+class GlobalFilter(Base):
+    __tablename__ = "global_filters"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    include_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
+    exclude_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
+    subtitle_groups: Mapped[str | None] = mapped_column(Text, nullable=True)
+    regex_pattern: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    min_episode: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_episode: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
+
+    user: Mapped[User] = relationship(back_populates="global_filter")
 
 
 class DownloaderConfig(Base):

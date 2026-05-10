@@ -37,6 +37,96 @@
         </el-card>
       </el-tab-pane>
 
+      <el-tab-pane label="全局过滤" name="global-filter">
+        <el-card>
+          <el-form :model="globalFilterForm" label-width="100px" style="max-width: 500px">
+            <el-form-item label="包含关键词">
+              <el-select
+                v-model="globalFilterForm.include_keywords"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                placeholder="输入关键词后回车添加"
+                popper-class="hide-select-dropdown"
+                style="width: 100%"
+              />
+            </el-form-item>
+
+            <el-form-item label="排除关键词">
+              <el-select
+                v-model="globalFilterForm.exclude_keywords"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                placeholder="输入关键词后回车添加"
+                popper-class="hide-select-dropdown"
+                style="width: 100%"
+              />
+            </el-form-item>
+
+            <el-form-item label="字幕组">
+              <el-select
+                v-model="globalFilterForm.subtitle_groups"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                placeholder="输入字幕组名称后回车添加"
+                popper-class="hide-select-dropdown"
+                style="width: 100%"
+              />
+            </el-form-item>
+
+            <el-form-item label="集数范围">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <el-input-number v-model="globalFilterForm.min_episode" :min="0" :max="9999" placeholder="最小" controls-position="right" />
+                <span>—</span>
+                <el-input-number v-model="globalFilterForm.max_episode" :min="0" :max="9999" placeholder="最大" controls-position="right" />
+              </div>
+            </el-form-item>
+
+            <el-form-item>
+              <el-button link type="primary" @click="showAdvanced = !showAdvanced">
+                {{ showAdvanced ? '收起高级选项' : '展开高级选项' }}
+              </el-button>
+            </el-form-item>
+
+            <template v-if="showAdvanced">
+              <el-form-item label="正则匹配">
+                <el-input v-model="globalFilterForm.regex_pattern" placeholder="正则表达式匹配标题" />
+              </el-form-item>
+            </template>
+
+            <el-form-item>
+              <el-button v-if="hasGlobalFilter" type="primary" :loading="filterLoading" @click="handleUpdateGlobalFilter">更新过滤器</el-button>
+              <el-button v-else type="primary" :loading="filterLoading" @click="handleCreateGlobalFilter">创建过滤器</el-button>
+              <el-button v-if="hasGlobalFilter" type="danger" :loading="filterLoading" @click="handleDeleteGlobalFilter">删除过滤器</el-button>
+            </el-form-item>
+          </el-form>
+
+          <el-alert
+            v-if="hasGlobalFilter"
+            title="全局过滤器已启用"
+            type="success"
+            :closable="false"
+            style="margin-top: 16px"
+          >
+            此过滤器将应用于您的所有订阅。您可以为单个订阅设置额外的过滤器，两者将同时生效。
+          </el-alert>
+          <el-alert
+            v-else
+            title="全局过滤器未设置"
+            type="info"
+            :closable="false"
+            style="margin-top: 16px"
+          >
+            设置全局过滤器后，它将自动应用于您的所有订阅的 RSS 输出和剧集列表。
+          </el-alert>
+        </el-card>
+      </el-tab-pane>
+
       <el-tab-pane v-if="userStore.isAdmin" label="数据管理" name="data">
         <el-card>
           <el-form label-width="100px">
@@ -58,22 +148,43 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { userApi, bangumiApi } from '@/api'
+
+interface GlobalFilterData {
+  include_keywords: string | null
+  exclude_keywords: string | null
+  subtitle_groups: string | null
+  regex_pattern: string | null
+  min_episode: number | null
+  max_episode: number | null
+}
 
 const userStore = useUserStore()
 const activeTab = ref('profile')
 const dataSource = ref('mikan')
 const refreshLoading = ref(false)
 const passwordLoading = ref(false)
+const filterLoading = ref(false)
 const passwordFormRef = ref<FormInstance>()
+const hasGlobalFilter = ref(false)
+const showAdvanced = ref(false)
 
 const passwordForm = reactive({
   oldPassword: '',
   newPassword: '',
   confirmPassword: '',
+})
+
+const globalFilterForm = reactive({
+  include_keywords: [] as string[],
+  exclude_keywords: [] as string[],
+  subtitle_groups: [] as string[],
+  regex_pattern: '',
+  min_episode: undefined as number | undefined,
+  max_episode: undefined as number | undefined,
 })
 
 const validateConfirmPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
@@ -94,6 +205,61 @@ const passwordRules: FormRules = {
     { required: true, message: '请确认新密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' },
   ],
+}
+
+function parseCommaList(val: string | null): string[] {
+  if (!val) return []
+  return val.split(',').map(s => s.trim()).filter(Boolean)
+}
+
+function buildFilterPayload(): Record<string, unknown> {
+  const data: Record<string, unknown> = {}
+  if (globalFilterForm.include_keywords.length > 0) {
+    data.include_keywords = globalFilterForm.include_keywords.join(',')
+  }
+  if (globalFilterForm.exclude_keywords.length > 0) {
+    data.exclude_keywords = globalFilterForm.exclude_keywords.join(',')
+  }
+  if (globalFilterForm.subtitle_groups.length > 0) {
+    data.subtitle_groups = globalFilterForm.subtitle_groups.join(',')
+  }
+  if (globalFilterForm.regex_pattern) {
+    data.regex_pattern = globalFilterForm.regex_pattern
+  }
+  if (globalFilterForm.min_episode !== undefined && globalFilterForm.min_episode !== null) {
+    data.min_episode = globalFilterForm.min_episode
+  }
+  if (globalFilterForm.max_episode !== undefined && globalFilterForm.max_episode !== null) {
+    data.max_episode = globalFilterForm.max_episode
+  }
+  return data
+}
+
+function loadFilterForm(filter: GlobalFilterData) {
+  globalFilterForm.include_keywords = parseCommaList(filter.include_keywords)
+  globalFilterForm.exclude_keywords = parseCommaList(filter.exclude_keywords)
+  globalFilterForm.subtitle_groups = parseCommaList(filter.subtitle_groups)
+  globalFilterForm.regex_pattern = filter.regex_pattern || ''
+  globalFilterForm.min_episode = filter.min_episode ?? undefined
+  globalFilterForm.max_episode = filter.max_episode ?? undefined
+  showAdvanced.value = !!filter.regex_pattern
+}
+
+async function fetchGlobalFilter() {
+  const response = await userApi.getGlobalFilter()
+  if (!response.data) {
+    hasGlobalFilter.value = false
+    globalFilterForm.include_keywords = []
+    globalFilterForm.exclude_keywords = []
+    globalFilterForm.subtitle_groups = []
+    globalFilterForm.regex_pattern = ''
+    globalFilterForm.min_episode = undefined
+    globalFilterForm.max_episode = undefined
+    showAdvanced.value = false
+    return
+  }
+  loadFilterForm(response.data)
+  hasGlobalFilter.value = true
 }
 
 async function handleChangePassword() {
@@ -119,6 +285,56 @@ async function handleRefresh() {
     refreshLoading.value = false
   }
 }
+
+async function handleCreateGlobalFilter() {
+  filterLoading.value = true
+  try {
+    await userApi.createGlobalFilter(buildFilterPayload())
+    ElMessage.success('全局过滤器已创建')
+    await fetchGlobalFilter()
+  } catch {
+    // Error handled by interceptor
+  } finally {
+    filterLoading.value = false
+  }
+}
+
+async function handleUpdateGlobalFilter() {
+  filterLoading.value = true
+  try {
+    await userApi.updateGlobalFilter(buildFilterPayload())
+    ElMessage.success('全局过滤器已更新')
+    await fetchGlobalFilter()
+  } catch {
+    // Error handled by interceptor
+  } finally {
+    filterLoading.value = false
+  }
+}
+
+async function handleDeleteGlobalFilter() {
+  filterLoading.value = true
+  try {
+    await userApi.deleteGlobalFilter()
+    ElMessage.success('全局过滤器已删除')
+    hasGlobalFilter.value = false
+    globalFilterForm.include_keywords = []
+    globalFilterForm.exclude_keywords = []
+    globalFilterForm.subtitle_groups = []
+    globalFilterForm.regex_pattern = ''
+    globalFilterForm.min_episode = undefined
+    globalFilterForm.max_episode = undefined
+    showAdvanced.value = false
+  } catch {
+    // Error handled by interceptor
+  } finally {
+    filterLoading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchGlobalFilter()
+})
 </script>
 
 <style scoped lang="scss">
@@ -129,4 +345,6 @@ async function handleRefresh() {
     margin: 0;
   }
 }
+
+
 </style>

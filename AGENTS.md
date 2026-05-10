@@ -72,7 +72,7 @@ frontend/src/
 - **API 前缀**: 所有后端路由 `/api` 下
 - **全异步**: async SQLAlchemy + async 路由
 - **配置**: 环境变量 / `.env` (pydantic-settings)
-- **包管理**: 使用 uv 管理依赖，`uv.lock` 锁定版本
+- **包管理**: 使用 uv 管理依赖，`uv.lock` 锁定版本，应该尽量选用维护活跃的依赖
 - **插件模式**: 数据源/下载器 → 继承抽象基类 → `__init__.py` 注册字典 → 工厂函数获取
 - **单文件模型**: `models/models.py`; 所有 Pydantic schema 在 `schemas/schemas.py`
 - **前端自动导入**: Element Plus 组件/图标无需手动 import

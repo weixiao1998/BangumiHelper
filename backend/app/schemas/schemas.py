@@ -118,13 +118,13 @@ class SubscriptionResponse(SubscriptionBase):
     created_at: datetime
     updated_at: datetime
     bangumi: BangumiResponse
+    filter: BangumiFilterResponse | None = None
 
     class Config:
         from_attributes = True
 
 
 class BangumiFilterBase(BaseModel):
-    bangumi_name: str
     include_keywords: str | None = None
     exclude_keywords: str | None = None
     subtitle_groups: str | None = None
@@ -147,6 +147,40 @@ class BangumiFilterUpdate(BaseModel):
 
 
 class BangumiFilterResponse(BangumiFilterBase):
+    id: int
+    user_id: int
+    subscription_id: int
+    bangumi_name: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class GlobalFilterBase(BaseModel):
+    include_keywords: str | None = None
+    exclude_keywords: str | None = None
+    subtitle_groups: str | None = None
+    regex_pattern: str | None = None
+    min_episode: int | None = None
+    max_episode: int | None = None
+
+
+class GlobalFilterCreate(GlobalFilterBase):
+    pass
+
+
+class GlobalFilterUpdate(BaseModel):
+    include_keywords: str | None = None
+    exclude_keywords: str | None = None
+    subtitle_groups: str | None = None
+    regex_pattern: str | None = None
+    min_episode: int | None = None
+    max_episode: int | None = None
+
+
+class GlobalFilterResponse(GlobalFilterBase):
     id: int
     user_id: int
     created_at: datetime

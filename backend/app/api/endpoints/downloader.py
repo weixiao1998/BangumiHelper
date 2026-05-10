@@ -218,11 +218,15 @@ async def get_rss_feed(
     from fastapi.responses import Response
     from sqlalchemy.orm import selectinload
 
-    from app.models.models import Bangumi
+    from app.core.filter_utils import filter_episodes
+    from app.models.models import Bangumi, GlobalFilter
 
     result = await session.execute(
         select(Subscription)
-        .options(selectinload(Subscription.bangumi).selectinload(Bangumi.episodes))
+        .options(
+            selectinload(Subscription.bangumi).selectinload(Bangumi.episodes),
+            selectinload(Subscription.filter),
+        )
         .where(Subscription.id == subscription_id, Subscription.rss_token == token)
     )
     subscription = result.scalar_one_or_none()
@@ -230,7 +234,12 @@ async def get_rss_feed(
     if not subscription:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订阅不存在或token无效")
 
-    episodes = subscription.bangumi.episodes
+    result = await session.execute(
+        select(GlobalFilter).where(GlobalFilter.user_id == subscription.user_id)
+    )
+    global_filter = result.scalar_one_or_none()
+
+    episodes = filter_episodes(subscription.bangumi.episodes, subscription.filter, global_filter)
 
     feed = Rss201rev2Feed(
         title=f"{subscription.bangumi.name} - BangumiHelper",

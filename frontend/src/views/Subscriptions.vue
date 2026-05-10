@@ -18,7 +18,9 @@
             <div class="info">
               <h4>{{ sub.bangumi.name }}</h4>
               <p>当前: 第 {{ sub.current_episode }} 集</p>
+              <el-tag v-if="sub.filter" size="small" type="warning" style="margin-bottom: 8px;">已过滤</el-tag>
               <div class="actions" @click.stop>
+                <el-button size="small" @click="showFilterDialog(sub)">过滤</el-button>
                 <el-button size="small" @click="showRssDialog(sub)">RSS</el-button>
                 <el-button size="small" @click="showMarkDialog(sub)">标记</el-button>
                 <el-button size="small" type="danger" @click="handleUnsubscribe(sub.id)">取消</el-button>
@@ -57,6 +59,15 @@
         <el-button type="primary" @click="copyRssUrl">复制链接</el-button>
       </template>
     </el-dialog>
+
+    <FilterDialog
+      v-model="filterDialogVisible"
+      :subscription-id="filterSubscriptionId"
+      :filter-data="filterData"
+      :subtitle-group-options="filterSubtitleGroups"
+      @saved="handleFilterSaved"
+      @deleted="handleFilterDeleted"
+    />
   </div>
 </template>
 
@@ -65,6 +76,16 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { subscriptionApi, downloaderApi } from '@/api'
+import FilterDialog from '@/components/FilterDialog.vue'
+
+interface BangumiFilter {
+  include_keywords: string | null
+  exclude_keywords: string | null
+  subtitle_groups: string | null
+  regex_pattern: string | null
+  min_episode: number | null
+  max_episode: number | null
+}
 
 interface Subscription {
   id: number
@@ -73,8 +94,10 @@ interface Subscription {
     id: number
     name: string
     cover: string
+    subtitle_groups?: string | null
   }
   current_episode: number
+  filter: BangumiFilter | null
 }
 
 const router = useRouter()
@@ -83,10 +106,25 @@ const loading = ref(true)
 const subscriptions = ref<Subscription[]>([])
 const markDialogVisible = ref(false)
 const rssDialogVisible = ref(false)
+const filterDialogVisible = ref(false)
 const markEpisode = ref(0)
 const rssUrl = ref('')
 const currentSubscription = ref<Subscription | null>(null)
 const currentRssSubscription = ref<Subscription | null>(null)
+const filterSubscriptionId = ref(0)
+const filterData = ref<BangumiFilter | null>(null)
+const filterSubtitleGroups = ref<string[]>([])
+
+function parseSubtitleGroups(val: string | null | undefined): string[] {
+  if (!val) return []
+  return val
+    .split(',')
+    .map(s => {
+      const parts = s.split(':')
+      return parts.length > 1 ? parts.slice(1).join(':').trim() : s.trim()
+    })
+    .filter(Boolean)
+}
 
 async function fetchSubscriptions() {
   loading.value = true
@@ -121,6 +159,13 @@ async function showRssDialog(sub: Subscription) {
   const baseUrl = import.meta.env.VITE_API_URL || window.location.origin
   rssUrl.value = `${baseUrl}/api/downloaders/rss/${sub.id}?token=${token}`
   rssDialogVisible.value = true
+}
+
+function showFilterDialog(sub: Subscription) {
+  filterSubscriptionId.value = sub.id
+  filterData.value = sub.filter || null
+  filterSubtitleGroups.value = parseSubtitleGroups(sub.bangumi.subtitle_groups)
+  filterDialogVisible.value = true
 }
 
 async function handleRegenerateToken() {
@@ -166,6 +211,14 @@ async function handleUnsubscribe(id: number) {
   } catch {
     // Error handled by interceptor
   }
+}
+
+async function handleFilterSaved() {
+  await fetchSubscriptions()
+}
+
+async function handleFilterDeleted() {
+  await fetchSubscriptions()
 }
 
 onMounted(() => {
@@ -215,6 +268,7 @@ onMounted(() => {
     .actions {
       display: flex;
       gap: 8px;
+      flex-wrap: wrap;
     }
   }
 }

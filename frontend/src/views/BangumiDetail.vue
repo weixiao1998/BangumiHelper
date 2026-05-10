@@ -18,12 +18,14 @@
           <p class="meta">
             <el-tag>更新: {{ bangumi.update_time }}</el-tag>
             <el-tag type="info">{{ bangumi.data_source }}</el-tag>
+            <el-tag v-if="subscriptionFilter" type="warning">已过滤</el-tag>
           </p>
           <p v-if="bangumi.description" class="description">{{ bangumi.description }}</p>
 
           <div class="actions">
             <el-button v-if="!isSubscribed" type="primary" @click="showSubscribeDialog = true">订阅</el-button>
             <el-button v-else type="danger" @click="handleUnsubscribe">取消订阅</el-button>
+            <el-button v-if="isSubscribed" @click="showFilterDialog = true">过滤器</el-button>
           </div>
         </el-col>
       </el-row>
@@ -41,7 +43,9 @@
         <el-table-column prop="title" label="标题" min-width="250">
           <template #default="{ row }">
             <el-tooltip :content="row.title" placement="top">
-              <span class="episode-title">{{ row.title }}</span>
+              <span class="episode-title" :class="{ 'filtered-out': subscriptionFilter && !matchEpisode(row) }">
+                {{ row.title }}
+              </span>
             </el-tooltip>
           </template>
         </el-table-column>
@@ -102,6 +106,15 @@
         <el-button type="primary" @click="handleSubscribe">确定</el-button>
       </template>
     </el-dialog>
+
+    <FilterDialog
+      v-model="showFilterDialog"
+      :subscription-id="subscriptionId || 0"
+      :filter-data="subscriptionFilter"
+      :subtitle-group-options="subtitleGroupOptions"
+      @saved="handleFilterSaved"
+      @deleted="handleFilterDeleted"
+    />
   </div>
 </template>
 
@@ -111,6 +124,16 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import { bangumiApi, subscriptionApi, downloaderApi } from '@/api'
+import FilterDialog from '@/components/FilterDialog.vue'
+
+interface BangumiFilter {
+  include_keywords: string | null
+  exclude_keywords: string | null
+  subtitle_groups: string | null
+  regex_pattern: string | null
+  min_episode: number | null
+  max_episode: number | null
+}
 
 interface Episode {
   id: number
@@ -129,6 +152,7 @@ interface Bangumi {
   update_time: string
   data_source: string
   description: string
+  subtitle_groups?: string | null
   episodes: Episode[]
 }
 
@@ -150,7 +174,9 @@ const bangumi = ref<Bangumi | null>(null)
 const episodes = ref<Episode[]>([])
 const isSubscribed = ref(false)
 const subscriptionId = ref<number | null>(null)
+const subscriptionFilter = ref<BangumiFilter | null>(null)
 const downloaders = ref<Downloader[]>([])
+const showFilterDialog = ref(false)
 
 const showSubscribeDialog = ref(false)
 const subscribeForm = ref({
@@ -160,6 +186,64 @@ const subscribeForm = ref({
 })
 
 const bangumiId = computed(() => Number(route.params.id))
+
+const subtitleGroupOptions = computed(() => {
+  if (!bangumi.value?.subtitle_groups) return []
+  return bangumi.value.subtitle_groups
+    .split(',')
+    .map(s => {
+      const parts = s.split(':')
+      return parts.length > 1 ? parts.slice(1).join(':').trim() : s.trim()
+    })
+    .filter(Boolean)
+})
+
+function matchEpisode(episode: Episode): boolean {
+  const f = subscriptionFilter.value
+  if (!f) return true
+
+  if (f.include_keywords) {
+    const keywords = f.include_keywords.split(',').map(s => s.trim()).filter(Boolean)
+    for (const kw of keywords) {
+      if (kw.toLowerCase() && !episode.title.toLowerCase().includes(kw.toLowerCase())) {
+        return false
+      }
+    }
+  }
+
+  if (f.exclude_keywords) {
+    const keywords = f.exclude_keywords.split(',').map(s => s.trim()).filter(Boolean)
+    for (const kw of keywords) {
+      if (kw.toLowerCase() && episode.title.toLowerCase().includes(kw.toLowerCase())) {
+        return false
+      }
+    }
+  }
+
+  if (f.subtitle_groups) {
+    const allowed = f.subtitle_groups.split(',').map(s => s.trim()).filter(Boolean)
+    if (episode.subtitle_group) {
+      if (!allowed.some(a => a.toLowerCase() && episode.subtitle_group.toLowerCase().includes(a.toLowerCase()))) {
+        return false
+      }
+    } else {
+      if (allowed.length > 0) return false
+    }
+  }
+
+  if (f.regex_pattern) {
+    try {
+      if (!new RegExp(f.regex_pattern).test(episode.title)) return false
+    } catch {
+      // invalid regex, skip
+    }
+  }
+
+  if (f.min_episode !== null && f.min_episode !== undefined && episode.episode_number < f.min_episode) return false
+  if (f.max_episode !== null && f.max_episode !== undefined && episode.episode_number > f.max_episode) return false
+
+  return true
+}
 
 async function fetchBangumi() {
   loading.value = true
@@ -173,6 +257,7 @@ async function fetchBangumi() {
     if (sub) {
       isSubscribed.value = true
       subscriptionId.value = sub.id
+      subscriptionFilter.value = sub.filter || null
     }
   } catch {
     // Error handled by interceptor
@@ -214,6 +299,7 @@ async function handleUnsubscribe() {
     ElMessage.success('取消订阅成功')
     isSubscribed.value = false
     subscriptionId.value = null
+    subscriptionFilter.value = null
   } catch {
     // Error handled by interceptor
   }
@@ -269,6 +355,15 @@ async function handleDownload(episode: Episode, type: 'magnet' | 'torrent') {
   }
 }
 
+async function handleFilterSaved() {
+  await fetchBangumi()
+}
+
+async function handleFilterDeleted() {
+  subscriptionFilter.value = null
+  await fetchBangumi()
+}
+
 onMounted(() => {
   fetchBangumi()
   fetchDownloaders()
@@ -297,5 +392,10 @@ onMounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   display: block;
+}
+
+.filtered-out {
+  color: #c0c4cc;
+  text-decoration: line-through;
 }
 </style>

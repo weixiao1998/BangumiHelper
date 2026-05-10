@@ -96,3 +96,10 @@ html, body {
     border-left: 4px solid var(--el-color-primary);
   }
 }
+
+.el-popper.hide-select-dropdown,
+.el-select__popper.hide-select-dropdown,
+.el-popper.hide-select-dropdown .el-select-dropdown,
+.el-select__popper.hide-select-dropdown .el-select-dropdown {
+  display: none !important;
+}

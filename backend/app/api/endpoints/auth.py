@@ -4,12 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.constants import RegistrationMode
 from app.core.database import get_async_session
 from app.core.security import create_access_token, get_password_hash, verify_password
-from app.models.models import InviteCode, User
+from app.models.models import GlobalFilter, InviteCode, User
 from app.schemas import RegistrationConfigResponse, Token, UserCreate, UserResponse
 
 router = APIRouter()
@@ -31,7 +32,9 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    result = await session.execute(select(User).where(User.username == username))
+    result = await session.execute(
+        select(User).options(selectinload(User.global_filter)).where(User.username == username)
+    )
     user = result.scalar_one_or_none()
 
     if user is None:

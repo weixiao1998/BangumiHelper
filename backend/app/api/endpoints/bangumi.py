@@ -109,8 +109,9 @@ async def get_bangumi_detail(
     if not bangumi:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="番剧不存在")
 
+    source = get_data_source(data_source)
+
     if not bangumi.episodes:
-        source = get_data_source(data_source)
         episode_infos = await source.fetch_episode_of_bangumi(bangumi.keyword, max_page=1)
 
         for info in episode_infos:
@@ -128,6 +129,13 @@ async def get_bangumi_detail(
 
         await session.commit()
         await session.refresh(bangumi, ["episodes"])
+
+    if not bangumi.subtitle_groups:
+        bangumi_info = await source.fetch_single_bangumi(bangumi.keyword)
+        if bangumi_info and bangumi_info.subtitle_groups:
+            bangumi.subtitle_groups = bangumi_info.subtitle_groups
+            await session.commit()
+            await session.refresh(bangumi)
 
     return bangumi
 
@@ -175,6 +183,11 @@ async def refresh_bangumi_episodes(
             )
             session.add(episode)
             added_count += 1
+
+    if not bangumi.subtitle_groups:
+        bangumi_info = await source.fetch_single_bangumi(bangumi.keyword)
+        if bangumi_info and bangumi_info.subtitle_groups:
+            bangumi.subtitle_groups = bangumi_info.subtitle_groups
 
     await session.commit()
 

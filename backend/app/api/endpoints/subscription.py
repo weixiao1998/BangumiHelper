@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.endpoints.auth import get_current_active_user
 from app.core.database import get_async_session
-from app.models.models import Bangumi, Subscription, User
+from app.models.models import Bangumi, BangumiFilter, Subscription, User
 from app.schemas import (
     BangumiFilterCreate,
     BangumiFilterResponse,
@@ -19,6 +19,23 @@ from app.schemas import (
 
 router = APIRouter()
 
+SUBSCRIPTION_BASE_OPTIONS = (
+    selectinload(Subscription.bangumi).selectinload(Bangumi.episodes),
+    selectinload(Subscription.filter),
+)
+
+
+async def _get_user_subscription(subscription_id: int, user_id: int, session: AsyncSession) -> Subscription:
+    result = await session.execute(
+        select(Subscription)
+        .options(*SUBSCRIPTION_BASE_OPTIONS)
+        .where(Subscription.id == subscription_id, Subscription.user_id == user_id)
+    )
+    subscription = result.scalar_one_or_none()
+    if not subscription:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订阅不存在")
+    return subscription
+
 
 @router.get("", response_model=list[SubscriptionResponse])
 async def get_subscriptions(
@@ -27,7 +44,7 @@ async def get_subscriptions(
 ):
     result = await session.execute(
         select(Subscription)
-        .options(selectinload(Subscription.bangumi).selectinload(Bangumi.episodes))
+        .options(*SUBSCRIPTION_BASE_OPTIONS)
         .where(Subscription.user_id == current_user.id)
     )
     subscriptions = result.scalars().all()
@@ -68,7 +85,7 @@ async def create_subscription(
 
     result = await session.execute(
         select(Subscription)
-        .options(selectinload(Subscription.bangumi).selectinload(Bangumi.episodes))
+        .options(*SUBSCRIPTION_BASE_OPTIONS)
         .where(Subscription.id == subscription.id)
     )
     subscription = result.scalar_one()
@@ -83,15 +100,7 @@ async def update_subscription(
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_active_user),
 ):
-    result = await session.execute(
-        select(Subscription)
-        .options(selectinload(Subscription.bangumi))
-        .where(Subscription.id == subscription_id, Subscription.user_id == current_user.id)
-    )
-    subscription = result.scalar_one_or_none()
-
-    if not subscription:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订阅不存在")
+    subscription = await _get_user_subscription(subscription_id, current_user.id, session)
 
     update_data = subscription_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -130,18 +139,22 @@ async def mark_episode(
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_active_user),
 ):
-    result = await session.execute(
-        select(Subscription).where(Subscription.id == subscription_id, Subscription.user_id == current_user.id)
-    )
-    subscription = result.scalar_one_or_none()
-
-    if not subscription:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订阅不存在")
+    subscription = await _get_user_subscription(subscription_id, current_user.id, session)
 
     subscription.current_episode = episode
     await session.commit()
 
     return MessageResponse(message=f"已标记为第 {episode} 集")
+
+
+@router.get("/{subscription_id}/filter", response_model=BangumiFilterResponse | None)
+async def get_filter(
+    subscription_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    subscription = await _get_user_subscription(subscription_id, current_user.id, session)
+    return subscription.filter
 
 
 @router.post("/{subscription_id}/filter", response_model=BangumiFilterResponse, status_code=status.HTTP_201_CREATED)
@@ -151,20 +164,14 @@ async def create_filter(
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_active_user),
 ):
-    result = await session.execute(
-        select(Subscription)
-        .options(selectinload(Subscription.bangumi))
-        .where(Subscription.id == subscription_id, Subscription.user_id == current_user.id)
-    )
-    subscription = result.scalar_one_or_none()
+    subscription = await _get_user_subscription(subscription_id, current_user.id, session)
 
-    if not subscription:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订阅不存在")
-
-    from app.models.models import BangumiFilter
+    if subscription.filter:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="过滤器已存在，请使用更新接口")
 
     filter_obj = BangumiFilter(
         user_id=current_user.id,
+        subscription_id=subscription.id,
         bangumi_name=subscription.bangumi.name,
         include_keywords=filter_create.include_keywords,
         exclude_keywords=filter_create.exclude_keywords,
@@ -188,33 +195,33 @@ async def update_filter(
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_active_user),
 ):
-    result = await session.execute(
-        select(Subscription)
-        .options(selectinload(Subscription.bangumi))
-        .where(Subscription.id == subscription_id, Subscription.user_id == current_user.id)
-    )
-    subscription = result.scalar_one_or_none()
+    subscription = await _get_user_subscription(subscription_id, current_user.id, session)
 
-    if not subscription:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订阅不存在")
-
-    from app.models.models import BangumiFilter
-
-    result = await session.execute(
-        select(BangumiFilter).where(
-            BangumiFilter.user_id == current_user.id, BangumiFilter.bangumi_name == subscription.bangumi.name
-        )
-    )
-    filter_obj = result.scalar_one_or_none()
-
-    if not filter_obj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="过滤器不存在")
+    if not subscription.filter:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="过滤器不存在，请先创建")
 
     update_data = filter_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        setattr(filter_obj, field, value)
+        setattr(subscription.filter, field, value)
 
     await session.commit()
-    await session.refresh(filter_obj)
+    await session.refresh(subscription.filter)
 
-    return filter_obj
+    return subscription.filter
+
+
+@router.delete("/{subscription_id}/filter", response_model=MessageResponse)
+async def delete_filter(
+    subscription_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_active_user),
+):
+    subscription = await _get_user_subscription(subscription_id, current_user.id, session)
+
+    if not subscription.filter:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="过滤器不存在")
+
+    await session.delete(subscription.filter)
+    await session.commit()
+
+    return MessageResponse(message="过滤器已删除")
