@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.constants import RegistrationMode
 from app.core.database import get_async_session
 from app.core.security import create_access_token, get_password_hash, verify_password
-from app.models.models import GlobalFilter, InviteCode, User
+from app.models.models import InviteCode, User
 from app.schemas import RegistrationConfigResponse, Token, UserCreate, UserResponse
 
 router = APIRouter()

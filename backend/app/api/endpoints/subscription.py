@@ -132,21 +132,6 @@ async def delete_subscription(
     return MessageResponse(message="取消订阅成功")
 
 
-@router.post("/{subscription_id}/mark", response_model=MessageResponse)
-async def mark_episode(
-    subscription_id: int,
-    episode: int,
-    session: AsyncSession = Depends(get_async_session),
-    current_user: User = Depends(get_current_active_user),
-):
-    subscription = await _get_user_subscription(subscription_id, current_user.id, session)
-
-    subscription.current_episode = episode
-    await session.commit()
-
-    return MessageResponse(message=f"已标记为第 {episode} 集")
-
-
 @router.get("/{subscription_id}/filter", response_model=BangumiFilterResponse | None)
 async def get_filter(
     subscription_id: int,

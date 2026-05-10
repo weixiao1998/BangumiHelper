@@ -30,8 +30,6 @@
             <div class="info">
               <div class="name" :title="bangumi.name">{{ bangumi.name }}</div>
               <div class="meta">
-                <span v-if="bangumi.is_subscribed">已看到第 {{ bangumi.current_episode }} 集</span>
-                <span v-else class="unsubscribed">点击查看详情</span>
                 <el-tag v-if="bangumi.is_subscribed" type="success" size="small">已订阅</el-tag>
               </div>
             </div>
@@ -55,7 +53,6 @@ interface BangumiItem {
   cover: string
   update_time: string
   is_subscribed: boolean
-  current_episode: number
 }
 
 interface CalendarDay {
@@ -127,10 +124,5 @@ onMounted(() => {
     display: flex;
     gap: 12px;
   }
-}
-
-.unsubscribed {
-  color: #909399;
-  font-size: 12px;
 }
 </style>

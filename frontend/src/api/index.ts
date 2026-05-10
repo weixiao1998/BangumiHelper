@@ -53,7 +53,6 @@ export const subscriptionApi = {
     api.post('/subscriptions', data),
   update: (id: number, data: Record<string, unknown>) => api.put(`/subscriptions/${id}`, data),
   delete: (id: number) => api.delete(`/subscriptions/${id}`),
-  mark: (id: number, episode: number) => api.post(`/subscriptions/${id}/mark`, null, { params: { episode } }),
   getFilter: (id: number) => api.get(`/subscriptions/${id}/filter`),
   createFilter: (id: number, data: Record<string, unknown>) => api.post(`/subscriptions/${id}/filter`, data),
   updateFilter: (id: number, data: Record<string, unknown>) => api.put(`/subscriptions/${id}/filter`, data),
@@ -91,4 +90,6 @@ export const userApi = {
   createGlobalFilter: (data: Record<string, unknown>) => api.post('/users/me/global-filter', data),
   updateGlobalFilter: (data: Record<string, unknown>) => api.put('/users/me/global-filter', data),
   deleteGlobalFilter: () => api.delete('/users/me/global-filter'),
+  getRssToken: () => api.get('/users/me/rss-token'),
+  regenerateRssToken: () => api.post('/users/me/rss-token'),
 }

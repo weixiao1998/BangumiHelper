@@ -84,7 +84,6 @@ class BangumiResponse(BangumiBase):
 class BangumiListResponse(BangumiBase):
     id: int
     is_subscribed: bool = False
-    current_episode: int = 0
 
     class Config:
         from_attributes = True
@@ -113,7 +112,6 @@ class SubscriptionResponse(SubscriptionBase):
     id: int
     user_id: int
     status: int
-    current_episode: int
     rss_token: str | None = None
     created_at: datetime
     updated_at: datetime
@@ -260,6 +258,10 @@ class RSSFeedResponse(BaseModel):
     link: str
     description: str
     items: list[SearchResult]
+
+
+class UserRssTokenResponse(BaseModel):
+    rss_token: str | None = None
 
 
 class MessageResponse(BaseModel):

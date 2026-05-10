@@ -16,6 +16,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    rss_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
@@ -68,7 +69,6 @@ class Subscription(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     bangumi_id: Mapped[int] = mapped_column(Integer, ForeignKey("bangumi.id", ondelete="CASCADE"), nullable=False)
     status: Mapped[int] = mapped_column(Integer, default=1)
-    current_episode: Mapped[int] = mapped_column(Integer, default=0)
     auto_download: Mapped[bool] = mapped_column(Boolean, default=False)
     downloader_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("downloader_configs.id"), nullable=True)
     save_path: Mapped[str | None] = mapped_column(String(500), nullable=True)

@@ -43,7 +43,6 @@ async def get_calendar(
             subtitle_groups=bangumi.subtitle_groups,
             description=bangumi.description,
             is_subscribed=sub is not None,
-            current_episode=sub.current_episode if sub else 0,
         )
 
         weekday = bangumi.update_time.lower()

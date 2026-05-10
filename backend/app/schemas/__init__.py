@@ -36,6 +36,7 @@ from app.schemas.schemas import (
     UserCreate,
     UserLogin,
     UserResponse,
+    UserRssTokenResponse,
 )
 
 __all__ = [
@@ -43,6 +44,7 @@ __all__ = [
     "UserCreate",
     "UserLogin",
     "UserResponse",
+    "UserRssTokenResponse",
     "Token",
     "TokenPayload",
     "EpisodeBase",

@@ -143,6 +143,32 @@
           </el-form>
         </el-card>
       </el-tab-pane>
+
+      <el-tab-pane label="RSS 订阅" name="rss">
+        <el-card>
+          <p style="margin-bottom: 16px; color: #606266;">
+            将以下链接添加到您的 RSS 阅读器或下载工具中，即可订阅您所有番剧的更新：
+          </p>
+          <el-input
+            v-model="userRssUrl"
+            type="textarea"
+            :rows="3"
+            readonly
+            style="margin-bottom: 16px"
+          />
+          <p v-if="!userRssToken" style="color: #e6a23c; font-size: 12px; margin-bottom: 16px;">
+            尚未生成 RSS Token，请点击下方按钮生成
+          </p>
+          <p v-else style="color: #909399; font-size: 12px; margin-bottom: 16px;">
+            如果链接泄露，可以点击"重新生成"按钮获取新链接
+          </p>
+          <el-button v-if="!userRssToken" type="primary" :loading="rssTokenLoading" @click="handleGenerateUserRssToken">生成 RSS 链接</el-button>
+          <template v-else>
+            <el-button @click="handleRegenerateUserRssToken" :loading="rssTokenLoading">重新生成</el-button>
+            <el-button type="primary" @click="copyUserRssUrl">复制链接</el-button>
+          </template>
+        </el-card>
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
@@ -168,9 +194,12 @@ const dataSource = ref('mikan')
 const refreshLoading = ref(false)
 const passwordLoading = ref(false)
 const filterLoading = ref(false)
+const rssTokenLoading = ref(false)
 const passwordFormRef = ref<FormInstance>()
 const hasGlobalFilter = ref(false)
 const showAdvanced = ref(false)
+const userRssToken = ref('')
+const userRssUrl = ref('')
 
 const passwordForm = reactive({
   oldPassword: '',
@@ -332,8 +361,62 @@ async function handleDeleteGlobalFilter() {
   }
 }
 
+function buildUserRssUrl(token: string) {
+  const baseUrl = window.location.origin
+  const userId = userStore.user?.id ?? 0
+  userRssToken.value = token
+  userRssUrl.value = `${baseUrl}/api/rss/user/${userId}?token=${token}`
+}
+
+async function fetchUserRssToken() {
+  try {
+    const response = await userApi.getRssToken()
+    if (response.data?.rss_token) {
+      buildUserRssUrl(response.data.rss_token)
+    }
+  } catch {
+    // Error handled by interceptor
+  }
+}
+
+async function handleGenerateUserRssToken() {
+  rssTokenLoading.value = true
+  try {
+    const response = await userApi.regenerateRssToken()
+    buildUserRssUrl(response.data.rss_token)
+    ElMessage.success('RSS 链接已生成')
+  } catch {
+    // Error handled by interceptor
+  } finally {
+    rssTokenLoading.value = false
+  }
+}
+
+async function handleRegenerateUserRssToken() {
+  rssTokenLoading.value = true
+  try {
+    const response = await userApi.regenerateRssToken()
+    buildUserRssUrl(response.data.rss_token)
+    ElMessage.success('RSS Token 已重新生成')
+  } catch {
+    // Error handled by interceptor
+  } finally {
+    rssTokenLoading.value = false
+  }
+}
+
+async function copyUserRssUrl() {
+  try {
+    await navigator.clipboard.writeText(userRssUrl.value)
+    ElMessage.success('已复制到剪贴板')
+  } catch {
+    ElMessage.error('复制失败')
+  }
+}
+
 onMounted(() => {
   fetchGlobalFilter()
+  fetchUserRssToken()
 })
 </script>
 

@@ -17,12 +17,10 @@
             <el-image :src="sub.bangumi.cover || '/placeholder.png'" fit="cover" class="cover" />
             <div class="info">
               <h4>{{ sub.bangumi.name }}</h4>
-              <p>当前: 第 {{ sub.current_episode }} 集</p>
               <el-tag v-if="sub.filter" size="small" type="warning" style="margin-bottom: 8px;">已过滤</el-tag>
               <div class="actions" @click.stop>
                 <el-button size="small" @click="showFilterDialog(sub)">过滤</el-button>
                 <el-button size="small" @click="showRssDialog(sub)">RSS</el-button>
-                <el-button size="small" @click="showMarkDialog(sub)">标记</el-button>
                 <el-button size="small" type="danger" @click="handleUnsubscribe(sub.id)">取消</el-button>
               </div>
             </div>
@@ -30,18 +28,6 @@
         </el-col>
       </el-row>
     </template>
-
-    <el-dialog v-model="markDialogVisible" title="标记集数" width="400px">
-      <el-form label-width="80px">
-        <el-form-item label="集数">
-          <el-input-number v-model="markEpisode" :min="0" :max="9999" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="markDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleMark">确定</el-button>
-      </template>
-    </el-dialog>
 
     <el-dialog v-model="rssDialogVisible" title="RSS 订阅链接" width="500px">
       <p>将以下链接添加到您的 RSS 阅读器中：</p>
@@ -96,7 +82,6 @@ interface Subscription {
     cover: string
     subtitle_groups?: string | null
   }
-  current_episode: number
   filter: BangumiFilter | null
 }
 
@@ -104,12 +89,9 @@ const router = useRouter()
 
 const loading = ref(true)
 const subscriptions = ref<Subscription[]>([])
-const markDialogVisible = ref(false)
 const rssDialogVisible = ref(false)
 const filterDialogVisible = ref(false)
-const markEpisode = ref(0)
 const rssUrl = ref('')
-const currentSubscription = ref<Subscription | null>(null)
 const currentRssSubscription = ref<Subscription | null>(null)
 const filterSubscriptionId = ref(0)
 const filterData = ref<BangumiFilter | null>(null)
@@ -136,12 +118,6 @@ async function fetchSubscriptions() {
   } finally {
     loading.value = false
   }
-}
-
-function showMarkDialog(sub: Subscription) {
-  currentSubscription.value = sub
-  markEpisode.value = sub.current_episode
-  markDialogVisible.value = true
 }
 
 async function showRssDialog(sub: Subscription) {
@@ -188,18 +164,6 @@ async function copyRssUrl() {
     ElMessage.success('已复制到剪贴板')
   } catch {
     ElMessage.error('复制失败，请手动复制')
-  }
-}
-
-async function handleMark() {
-  if (!currentSubscription.value) return
-  try {
-    await subscriptionApi.mark(currentSubscription.value.id, markEpisode.value)
-    ElMessage.success('标记成功')
-    markDialogVisible.value = false
-    await fetchSubscriptions()
-  } catch {
-    // Error handled by interceptor
   }
 }
 

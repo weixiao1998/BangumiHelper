@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +12,7 @@ from app.schemas import (
     GlobalFilterUpdate,
     MessageResponse,
     UserResponse,
+    UserRssTokenResponse,
 )
 
 router = APIRouter()
@@ -103,3 +106,20 @@ async def delete_global_filter(
     await session.commit()
 
     return MessageResponse(message="全局过滤器已删除")
+
+
+@router.get("/me/rss-token", response_model=UserRssTokenResponse)
+async def get_user_rss_token(
+    current_user: User = Depends(get_current_active_user),
+):
+    return UserRssTokenResponse(rss_token=current_user.rss_token)
+
+
+@router.post("/me/rss-token", response_model=UserRssTokenResponse)
+async def regenerate_user_rss_token(
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    current_user.rss_token = secrets.token_hex(32)
+    await session.commit()
+    return UserRssTokenResponse(rss_token=current_user.rss_token)
