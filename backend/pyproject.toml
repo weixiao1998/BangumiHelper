@@ -16,7 +16,7 @@ dependencies = [
     "python-jose[cryptography]==3.5.0",
     "bcrypt==5.0.0",
     "python-multipart==0.0.26",
-    "aiohttp==3.12.13",
+    "aiohttp==3.13.4",
     "beautifulsoup4==4.14.3",
     "lxml==6.1.0",
     "feedparser==6.0.12",
