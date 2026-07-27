@@ -40,8 +40,9 @@ class SubtitleGroupInfo:
 
 
 class BaseDataSource(ABC):
-    def __init__(self, proxy: str = ""):
-        self.proxy = proxy
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.proxy = cfg.proxy
 
     @abstractmethod
     async def fetch_bangumi_calendar(self) -> list[BangumiInfo]:

@@ -4,7 +4,6 @@ from datetime import datetime
 import aiohttp
 from bs4 import BeautifulSoup
 
-from app.core.config import settings
 from app.core.utils import beijing_to_utc
 from app.services.data_sources.base import BangumiInfo, BaseDataSource, EpisodeInfo
 
@@ -33,9 +32,9 @@ def parse_episode_number(title: str) -> int:
 
 
 class DmhyDataSource(BaseDataSource):
-    def __init__(self, proxy: str = ""):
-        super().__init__(proxy)
-        self.base_url = settings.DMHY_URL.rstrip("/")
+    def __init__(self, cfg):
+        super().__init__(cfg)
+        self.base_url = cfg.dmhy_url.rstrip("/")
         self._session: aiohttp.ClientSession | None = None
 
     @property

@@ -21,7 +21,9 @@
 
 ## 🚀 快速开始
 
-### 方式一：Docker 部署（推荐）
+### Docker 开发（推荐）
+
+无需本地安装 Python / Node 环境，一条命令启动带热重载的开发环境。
 
 ```bash
 # 1. 克隆项目
@@ -32,67 +34,34 @@ cd BangumiHelper
 cp .env.example .env
 # 编辑 .env 文件，设置 SECRET_KEY
 
-# 3. 启动服务
-docker compose up -d --build
+# 3. 启动开发环境（首次或依赖变更时加 --build）
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
-# 4. 访问网站
-# http://localhost:8081
+# 4. 访问开发服务（改代码自动热重载）
+# http://localhost:18000
 ```
 
-### 方式二：本地开发
+> 生产部署：`docker compose up -d --build`，访问 `http://localhost:8081`，详见 [部署文档](documents/deployment.md)。
 
-#### 后端
+### 本地开发（无 Docker）
 
-```bash
-cd backend
-
-# 创建虚拟环境并安装依赖（使用 uv）
-uv venv --python 3.14
-source .venv/bin/activate  # Linux/macOS
-uv sync --extra dev
-
-# 配置环境变量
-export SECRET_KEY="your-secret-key"
-export DATABASE_URL="sqlite+aiosqlite:///./data/bangumi.db"
-
-# 启动服务
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-#### 前端
-
-```bash
-cd frontend
-
-# 安装 pnpm（如果没有）
-npm install -g pnpm
-
-# 安装依赖
-pnpm install
-
-# 启动开发服务器
-pnpm dev
-
-# 构建生产版本
-pnpm build
-```
+适用于 IDE 断点调试等场景，需自行安装 Python 3.14 / Node / pnpm，命令见 [开发指南](documents/development.md#本地开发无-docker)。
 
 ## ⚙️ 配置说明
 
-### 环境变量
+### 引导配置（.env 文件）
+
+改后需 `docker compose up -d` 重建容器生效：
 
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
 | `SECRET_KEY` | JWT密钥（必须修改） | - |
 | `DATABASE_URL` | 数据库连接 | `sqlite+aiosqlite:///./data/bangumi.db` |
-| `MIKAN_URL` | 蜜柑计划地址 | `https://mikanani.me` |
-| `MIKAN_USERNAME` | 蜜柑计划用户名 | - |
-| `MIKAN_PASSWORD` | 蜜柑计划密码 | - |
-| `PROXY` | 代理地址 | - |
+| `CALENDAR_REFRESH_INTERVAL` | 番剧日历刷新间隔（小时） | `1` |
 
-### 蜜柑计划登录
+### 运行时配置（管理 UI）
 
-蜜柑计划部分资源需要登录才能访问，配置 `MIKAN_USERNAME` 和 `MIKAN_PASSWORD` 即可。
+蜜柑URL、蜜柑账号密码、代理地址、注册模式等运行时配置，登录管理员账号后在「设置 → 系统配置」页面修改，保存后即时生效，无需重启容器。
 
 ## 📖 使用指南
 
@@ -137,6 +106,7 @@ BangumiHelper/
 │   │   │   └── downloaders/   # 下载器集成
 │   │   └── main.py         # 应用入口
 │   ├── Dockerfile
+│   ├── .dockerignore
 │   └── pyproject.toml
 ├── frontend/               # 前端代码
 │   ├── src/
@@ -146,7 +116,8 @@ BangumiHelper/
 │   │   └── views/         # 页面组件
 │   ├── Dockerfile
 │   └── package.json
-├── docker-compose.yml      # Docker 编排
+├── docker-compose.yml      # Docker 编排（生产）
+├── docker-compose.dev.yml  # Docker 编排（开发，热重载）
 ├── .env.example            # 环境变量示例
 └── README.md
 ```

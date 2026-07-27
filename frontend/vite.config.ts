@@ -26,9 +26,10 @@ export default defineConfig({
   server: {
     host: 'localhost',
     port: 18000,
+    allowedHosts: process.env.VITE_ALLOWED_HOSTS?.split(',') || [],
     proxy: {
       '/api': {
-        target: 'http://localhost:18001',
+        target: process.env.API_PROXY_TARGET || 'http://localhost:18001',
         changeOrigin: true,
       },
     },

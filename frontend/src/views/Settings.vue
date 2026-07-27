@@ -144,6 +144,44 @@
         </el-card>
       </el-tab-pane>
 
+      <el-tab-pane v-if="userStore.isAdmin" label="系统配置" name="system">
+        <el-card>
+          <el-form :model="systemForm" label-width="140px" style="max-width: 600px">
+            <el-form-item label="蜜柑计划地址">
+              <el-input v-model="systemForm.mikan_url" placeholder="https://mikanani.me" />
+            </el-form-item>
+            <el-form-item label="蜜柑账号">
+              <el-input v-model="systemForm.mikan_username" placeholder="可选，用于访问需登录资源" />
+            </el-form-item>
+            <el-form-item label="蜜柑密码">
+              <el-input v-model="systemForm.mikan_password" type="password" show-password placeholder="留空表示不修改" />
+            </el-form-item>
+            <el-form-item label="bangumi.moe 地址">
+              <el-input v-model="systemForm.bangumi_moe_url" placeholder="https://bangumi.moe" />
+            </el-form-item>
+            <el-form-item label="动漫花园地址">
+              <el-input v-model="systemForm.dmhy_url" placeholder="https://share.dmhy.org" />
+            </el-form-item>
+            <el-form-item label="代理地址">
+              <el-input v-model="systemForm.proxy" placeholder="可选，如 http://127.0.0.1:7890" />
+            </el-form-item>
+            <el-form-item label="注册模式">
+              <el-select v-model="systemForm.registration_mode" style="width: 200px">
+                <el-option label="开放注册" value="open" />
+                <el-option label="关闭注册" value="closed" />
+                <el-option label="仅邀请注册" value="invite_only" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="systemLoading" @click="handleUpdateSystem">保存配置</el-button>
+            </el-form-item>
+          </el-form>
+          <el-alert type="info" :closable="false" style="margin-top: 16px">
+            这些配置保存在数据库中，修改后即时生效，无需重启容器。
+          </el-alert>
+        </el-card>
+      </el-tab-pane>
+
       <el-tab-pane label="RSS 订阅" name="rss">
         <el-card>
           <p style="margin-bottom: 16px; color: #606266;">
@@ -174,10 +212,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { userApi, bangumiApi } from '@/api'
+import { userApi, bangumiApi, settingsApi } from '@/api'
 
 interface GlobalFilterData {
   include_keywords: string | null
@@ -200,6 +238,16 @@ const hasGlobalFilter = ref(false)
 const showAdvanced = ref(false)
 const userRssToken = ref('')
 const userRssUrl = ref('')
+const systemLoading = ref(false)
+const systemForm = reactive({
+  mikan_url: '',
+  mikan_username: '',
+  mikan_password: '',
+  bangumi_moe_url: '',
+  dmhy_url: '',
+  proxy: '',
+  registration_mode: 'open',
+})
 
 const passwordForm = reactive({
   oldPassword: '',
@@ -414,10 +462,54 @@ async function copyUserRssUrl() {
   }
 }
 
+async function fetchSystemSettings() {
+  try {
+    const response = await settingsApi.getSystem()
+    const data = response.data
+    systemForm.mikan_url = data.mikan_url
+    systemForm.mikan_username = data.mikan_username
+    systemForm.mikan_password = ''
+    systemForm.bangumi_moe_url = data.bangumi_moe_url
+    systemForm.dmhy_url = data.dmhy_url
+    systemForm.proxy = data.proxy
+    systemForm.registration_mode = data.registration_mode
+  } catch {
+    // Error handled by interceptor
+  }
+}
+
+async function handleUpdateSystem() {
+  const payload: Record<string, unknown> = {
+    mikan_url: systemForm.mikan_url,
+    mikan_username: systemForm.mikan_username,
+    bangumi_moe_url: systemForm.bangumi_moe_url,
+    dmhy_url: systemForm.dmhy_url,
+    proxy: systemForm.proxy,
+    registration_mode: systemForm.registration_mode,
+  }
+  if (systemForm.mikan_password) {
+    payload.mikan_password = systemForm.mikan_password
+  }
+  systemLoading.value = true
+  try {
+    await settingsApi.updateSystem(payload)
+    ElMessage.success('系统配置已保存')
+    systemForm.mikan_password = ''
+  } catch {
+    // Error handled by interceptor
+  } finally {
+    systemLoading.value = false
+  }
+}
+
 onMounted(() => {
   fetchGlobalFilter()
   fetchUserRssToken()
 })
+
+watch(() => userStore.isAdmin, (isAdmin) => {
+  if (isAdmin) fetchSystemSettings()
+}, { immediate: true })
 </script>
 
 <style scoped lang="scss">

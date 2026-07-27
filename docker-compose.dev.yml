@@ -1,0 +1,34 @@
+# Development override: mount source code and enable hot-reload.
+# Code changes take effect immediately without rebuilding images.
+#
+# Usage:
+#   First run / dependency change:  docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#   Start (no rebuild needed):      docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#   Logs:                           docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f
+#   Stop:                           docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+#
+# Frontend dev server: http://localhost:18000 (Vite HMR)
+# Backend reloads automatically on ./backend/app changes.
+services:
+  backend:
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/migrations:/app/migrations
+      - ./backend/alembic.ini:/app/alembic.ini
+      - ./backend/migrate.sh:/app/migrate.sh
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  frontend:
+    image: bangumi-helper-frontend:dev
+    build:
+      context: ./frontend
+      target: deps
+    command: ["pnpm", "dev", "--host", "0.0.0.0"]
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - API_PROXY_TARGET=http://backend:8000
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
+    ports:
+      - "18000:18000"

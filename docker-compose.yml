@@ -6,25 +6,19 @@ x-logging: &logging
 
 services:
   backend:
+    image: bangumi-helper-backend:latest
     build: ./backend
     container_name: bangumi-helper-backend
     restart: unless-stopped
     volumes:
       - bangumi-data:/app/data
-    environment:
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-me}
-      - DATABASE_URL=sqlite+aiosqlite:///./data/bangumi.db
-      - MIKAN_URL=${MIKAN_URL:-https://mikanani.me}
-      - MIKAN_USERNAME=${MIKAN_USERNAME:-}
-      - MIKAN_PASSWORD=${MIKAN_PASSWORD:-}
-      - PROXY=${PROXY:-}
-      - CORS_ORIGINS_STR=${CORS_ORIGINS_STR:-http://localhost:8081}
-      - REGISTRATION_MODE=${REGISTRATION_MODE:-open}
+      - ./.env:/app/.env:ro
     networks:
       - bangumi-network
     logging: *logging
 
   frontend:
+    image: bangumi-helper-frontend:latest
     build: ./frontend
     container_name: bangumi-helper-frontend
     restart: unless-stopped

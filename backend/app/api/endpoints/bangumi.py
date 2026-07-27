@@ -61,7 +61,7 @@ async def search_bangumi(
     data_source: str = Query(default="mikan", description="数据源"),
     current_user: User = Depends(get_current_active_user),
 ):
-    source = get_data_source(data_source)
+    source = await get_data_source(data_source)
     results = await source.search_by_keyword(keyword)
 
     return [
@@ -108,7 +108,7 @@ async def get_bangumi_detail(
     if not bangumi:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="番剧不存在")
 
-    source = get_data_source(data_source)
+    source = await get_data_source(data_source)
 
     if not bangumi.episodes:
         episode_infos = await source.fetch_episode_of_bangumi(bangumi.keyword, max_page=1)
@@ -207,7 +207,7 @@ async def get_bangumi_episodes(
     if not bangumi:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="番剧不存在")
 
-    source = get_data_source(data_source)
+    source = await get_data_source(data_source)
     episodes = await source.fetch_episode_of_bangumi(bangumi.keyword, max_page=max_page)
 
     return [

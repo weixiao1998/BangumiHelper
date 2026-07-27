@@ -292,3 +292,35 @@ class InviteCodeResponse(BaseModel):
 class RegistrationConfigResponse(BaseModel):
     mode: str
     message: str
+
+
+# 运行时系统配置（内部使用，含全部字段与默认值）
+class SystemSettings(BaseModel):
+    mikan_url: str = "https://mikanani.me"
+    mikan_username: str = ""
+    mikan_password: str = ""
+    bangumi_moe_url: str = "https://bangumi.moe"
+    dmhy_url: str = "https://share.dmhy.org"
+    proxy: str = ""
+    registration_mode: str = "open"
+
+
+# 管理员查询返回（不含密码）
+class SystemSettingsResponse(BaseModel):
+    mikan_url: str
+    mikan_username: str
+    bangumi_moe_url: str
+    dmhy_url: str
+    proxy: str
+    registration_mode: str
+
+
+# 管理员更新（全部可选；password 留空表示不修改）
+class SystemSettingsUpdate(BaseModel):
+    mikan_url: str | None = None
+    mikan_username: str | None = None
+    mikan_password: str | None = None
+    bangumi_moe_url: str | None = None
+    dmhy_url: str | None = None
+    proxy: str | None = None
+    registration_mode: str | None = None

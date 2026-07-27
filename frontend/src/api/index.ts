@@ -93,3 +93,8 @@ export const userApi = {
   getRssToken: () => api.get('/users/me/rss-token'),
   regenerateRssToken: () => api.post('/users/me/rss-token'),
 }
+
+export const settingsApi = {
+  getSystem: () => api.get('/settings/system'),
+  updateSystem: (data: Record<string, unknown>) => api.put('/settings/system', data),
+}

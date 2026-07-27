@@ -6,10 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.config import settings
 from app.core.constants import RegistrationMode
 from app.core.database import get_async_session
 from app.core.security import create_access_token, get_password_hash, verify_password
+from app.core.system_config import SystemConfig
 from app.models.models import InviteCode, User
 from app.schemas import RegistrationConfigResponse, Token, UserCreate, UserResponse
 
@@ -55,7 +55,8 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
 
 @router.get("/registration-config", response_model=RegistrationConfigResponse)
 async def get_registration_config():
-    mode = settings.REGISTRATION_MODE
+    cfg = await SystemConfig.get()
+    mode = cfg.registration_mode
     message_map = {
         RegistrationMode.OPEN: "注册开放",
         RegistrationMode.CLOSED: "注册已关闭",
@@ -69,10 +70,11 @@ async def register(
     user_create: UserCreate,
     session: AsyncSession = Depends(get_async_session),
 ):
-    if settings.REGISTRATION_MODE == RegistrationMode.CLOSED:
+    cfg = await SystemConfig.get()
+    if cfg.registration_mode == RegistrationMode.CLOSED:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="注册已关闭")
 
-    if settings.REGISTRATION_MODE == RegistrationMode.INVITE_ONLY:
+    if cfg.registration_mode == RegistrationMode.INVITE_ONLY:
         if not user_create.invite_code:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="需要邀请码才能注册")
 
@@ -112,7 +114,7 @@ async def register(
     await session.commit()
     await session.refresh(user)
 
-    if settings.REGISTRATION_MODE == RegistrationMode.INVITE_ONLY and user_create.invite_code:
+    if cfg.registration_mode == RegistrationMode.INVITE_ONLY and user_create.invite_code:
         result = await session.execute(
             select(InviteCode).where(InviteCode.code == user_create.invite_code)
         )

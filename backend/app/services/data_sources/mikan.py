@@ -5,7 +5,6 @@ from urllib.parse import urljoin
 import aiohttp
 from bs4 import BeautifulSoup
 
-from app.core.config import settings
 from app.core.utils import beijing_to_utc
 from app.services.data_sources.base import BangumiInfo, BaseDataSource, EpisodeInfo
 
@@ -57,12 +56,11 @@ def parse_episode_number(title: str) -> int:
 
 
 class MikanDataSource(BaseDataSource):
-    def __init__(self, proxy: str = ""):
-        super().__init__(proxy)
-        self.base_url = settings.MIKAN_URL.rstrip("/")
+    def __init__(self, cfg):
+        super().__init__(cfg)
+        self.base_url = cfg.mikan_url.rstrip("/")
         self.login_url = f"{self.base_url}/Account/Login"
         self._session: aiohttp.ClientSession | None = None
-        self._proxy = proxy
 
     @property
     def session(self) -> aiohttp.ClientSession:
@@ -75,7 +73,7 @@ class MikanDataSource(BaseDataSource):
         return self._session
 
     async def _login(self):
-        if not settings.MIKAN_USERNAME or not settings.MIKAN_PASSWORD:
+        if not self.cfg.mikan_username or not self.cfg.mikan_password:
             return
 
         async with self.session.get(self.login_url) as response:
@@ -91,8 +89,8 @@ class MikanDataSource(BaseDataSource):
         await self.session.post(
             self.login_url,
             data={
-                "UserName": settings.MIKAN_USERNAME,
-                "Password": settings.MIKAN_PASSWORD,
+                "UserName": self.cfg.mikan_username,
+                "Password": self.cfg.mikan_password,
                 "__RequestVerificationToken": token,
             },
             headers={"Referer": self.login_url},
@@ -101,7 +99,7 @@ class MikanDataSource(BaseDataSource):
     async def _get_page(self, url: str, params: dict = None) -> str:
         async with self.session.get(url, params=params) as response:
             text = await response.text()
-            if "退出" not in text and settings.MIKAN_USERNAME:
+            if "退出" not in text and self.cfg.mikan_username:
                 await self._login()
                 async with self.session.get(url, params=params) as resp:
                     text = await resp.text()

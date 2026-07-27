@@ -8,9 +8,13 @@
 
 ```bash
 cp .env.example .env
-# 修改 .env：SECRET_KEY / CORS_ORIGINS_STR / MIKAN_URL 等
+# 修改 .env：SECRET_KEY 等（仅引导配置；运行时配置在管理 UI「系统设置」改）
 docker compose up -d --build
 ```
+
+镜像采用多阶段构建 + BuildKit 缓存挂载（uv / pnpm 依赖缓存），依赖不变时重建只跑代码拷贝层，速度很快。镜像已命名标签（`bangumi-helper-backend:latest` / `bangumi-helper-frontend:latest`），无代码变更时可直接 `docker compose up -d` 复用已有镜像。
+
+> 开发调试请用开发模式（挂载源码 + 热重载），见 [development.md](development.md#docker-开发模式)。
 
 容器运行后：
 - frontend 暴露 `8081` → Caddy 容器内 80

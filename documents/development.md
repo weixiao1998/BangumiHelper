@@ -1,5 +1,63 @@
 # 开发指南
 
+## Docker 开发模式
+
+项目提供 `docker-compose.dev.yml` 开发覆盖文件，挂载源码并启用热重载，改代码无需重建镜像。
+
+```bash
+# 首次或依赖变更时构建一次
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+# 之后启动（改代码无需任何命令，热重载自动生效）
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+
+- 后端：挂载 `backend/app`，uvicorn `--reload` 自动重载
+- 前端：挂载 `frontend`，Vite HMR 热更新，访问 `http://localhost:18000`
+- 前端 API 代理通过 `API_PROXY_TARGET=http://backend:8000` 指向容器网络内的后端
+- 依赖变更（`pyproject.toml` / `pnpm-lock.yaml`）需重新 `--build`
+
+> 生产部署使用 `docker compose up -d --build`（不加载 dev 文件），见 [deployment.md](deployment.md)。
+
+## 本地开发（无 Docker）
+
+适用于 IDE 断点调试、需要原生运行环境的场景。需自行安装 Python 3.14、Node.js、pnpm。
+
+### 后端
+
+```bash
+cd backend
+
+# 创建虚拟环境并安装依赖（使用 uv）
+uv venv --python 3.14
+source .venv/bin/activate  # Linux/macOS
+uv sync --extra dev
+
+# 配置环境变量
+export SECRET_KEY="your-secret-key"
+export DATABASE_URL="sqlite+aiosqlite:///./data/bangumi.db"
+
+# 启动服务（端口需与前端代理一致，默认 18001）
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 18001
+```
+
+### 前端
+
+```bash
+cd frontend
+
+# 安装 pnpm（如果没有）
+npm install -g pnpm
+
+# 安装依赖
+pnpm install
+
+# 启动开发服务器（:18000，代理 /api 到 http://localhost:18001）
+pnpm dev
+```
+
+> 前端 API 代理目标可通过 `API_PROXY_TARGET` 环境变量覆盖（见 `vite.config.ts`）。
+
 ## 新增数据源检查清单
 
 1. 在 `services/data_sources/` 下新建文件，继承 `BaseDataSource`

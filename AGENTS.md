@@ -30,9 +30,14 @@ pnpm dev                          # :18000
 pnpm build                        # vue-tsc + vite build
 pnpm lint                         # eslint --fix
 
-# Docker
-docker compose up -d --build
-docker compose restart backend    # 改 .env 后重启
+# Docker 生产
+docker compose up -d --build          # 构建+启动（有代码/依赖变更时）
+docker compose up -d                  # 复用已命名镜像启动（无变更时）
+docker compose restart backend        # 改 .env 后重启
+
+# Docker 开发（挂载源码 + 热重载，改代码免重建）
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build  # 首次/依赖变更
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d          # 直接启动
 ```
 
 ## 目录结构速查
@@ -43,17 +48,18 @@ backend/
 ├── uv.lock                   # uv 锁文件
 ├── .venv/                    # 虚拟环境 (uv 管理)
 └── app/
-    ├── main.py               # FastAPI 入口, CORS, lifespan 建表
+    ├── main.py               # FastAPI 入口, lifespan 建表
     ├── core/
     │   ├── config.py         # pydantic-settings 读 .env
     │   ├── database.py       # 异步 SQLAlchemy + aiosqlite
     │   ├── security.py       # JWT + bcrypt
     │   ├── scheduler.py      # APScheduler 定时任务
     │   ├── constants.py      # 常量
+    │   ├── system_config.py # 运行时系统配置 (DB + 内存缓存)
     │   └── utils.py          # 工具函数 (时间处理等)
     ├── models/models.py      # 所有 SQLAlchemy 模型 (单文件)
     ├── schemas/schemas.py    # 所有 Pydantic schema (单文件)
-    ├── api/endpoints/        # 路由: auth, user, bangumi, subscription, downloader, health, invite_codes
+    ├── api/endpoints/        # 路由: auth, user, bangumi, subscription, downloader, health, settings, invite_codes
     └── services/
         ├── data_sources/     # 插件化数据源: base, mikan, bangumi_moe, dmhy
         └── downloaders/      # 插件化下载器: base, qbittorrent, transmission, aria2
@@ -78,15 +84,16 @@ frontend/src/
 - **前端自动导入**: Element Plus 组件/图标无需手动 import
 - **Lint**: Ruff line-length=120, target=py314, 忽略 E501
 - **认证**: JWT, 首个注册用户自动成为管理员
+**配置分层**: 引导配置（SECRET_KEY/DATABASE_URL 等）在 `.env`，改后需 `up -d` 重建容器；运行时配置（MIKAN_URL/蜜柑账号/代理/注册模式 等）存 DB，由管理 UI「系统设置」维护，即时生效
 - **时间处理**: 后端统一使用 UTC 时间存储和传输，前端使用 `dayjs.utc().local()` 转为用户本地时间显示。时间工具函数位于 `app/core/utils.py`
 
 ## 详细文档索引
 
 | 主题 | 路径 |
 |------|------|
-| 开发指南（新增数据源/下载器、时间处理规范） | [documents/development.md](documents/development.md) |
+| 开发指南（新增数据源/下载器、时间处理规范、Docker 开发模式） | [documents/development.md](documents/development.md) |
 | Docker 生产部署、Caddy 配置、数据源刷新 | [documents/deployment.md](documents/deployment.md) |
-| 运维操作（宿主机 sqlite3 操作数据库等） | [documents/operations.md](documents/operations.md) |
+| 运维操作（容器内 sqlite3 操作数据库、换 MIKAN_URL 数据处理等） | [documents/operations.md](documents/operations.md) |
 
 ## AGENTS.md 维护
 

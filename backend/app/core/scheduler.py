@@ -16,7 +16,7 @@ async def refresh_bangumi_calendar():
 
     for source_name in get_available_data_sources():
         try:
-            source = get_data_source(source_name)
+            source = await get_data_source(source_name)
             async with async_session_maker() as session:
                 bangumi_list = await source.fetch_bangumi_calendar()
 

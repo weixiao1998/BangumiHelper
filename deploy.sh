@@ -8,7 +8,7 @@ if [ ! -f .env ]; then
     echo "创建 .env 文件..."
     cp .env.example .env
     echo "请编辑 .env 文件配置你的参数"
-    echo "特别是 SECRET_KEY 和 CORS_ORIGINS_STR"
+    echo "特别是 SECRET_KEY"
     exit 1
 fi
 

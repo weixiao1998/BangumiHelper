@@ -177,3 +177,11 @@ class InviteCode(Base):
 
     creator: Mapped[User] = relationship(foreign_keys=[created_by])
     user: Mapped[User | None] = relationship(foreign_keys=[used_by])
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
