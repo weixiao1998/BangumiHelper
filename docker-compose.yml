@@ -5,13 +5,40 @@ x-logging: &logging
     max-file: "3"
 
 services:
+  db:
+    image: mysql:8.0
+    container_name: bangumi-helper-db
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${DB_NAME:-bangumi}
+      MYSQL_USER: ${DB_USER:-bangumi}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-bangumi}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpass}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "13306:3306"
+    networks:
+      - bangumi-network
+    logging: *logging
+
   backend:
     image: bangumi-helper-backend:latest
     build: ./backend
     container_name: bangumi-helper-backend
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
-      - bangumi-data:/app/data
       - ./.env:/app/.env:ro
     networks:
       - bangumi-network
@@ -23,7 +50,7 @@ services:
     container_name: bangumi-helper-frontend
     restart: unless-stopped
     ports:
-      - "8081:80"
+      - "8001:80"
     volumes:
       - caddy-data:/data
     depends_on:
@@ -33,7 +60,7 @@ services:
     logging: *logging
 
 volumes:
-  bangumi-data:
+  mysql-data:
   caddy-data:
 
 networks:

@@ -36,7 +36,7 @@ def upgrade() -> None:
     )
 
     with op.batch_alter_table('bangumi_filters', schema=None) as batch_op:
-        batch_op.alter_column('subscription_id', nullable=False)
+        batch_op.alter_column('subscription_id', nullable=False, existing_type=sa.Integer())
         batch_op.create_unique_constraint('uq_bangumi_filters_subscription_id', ['subscription_id'])
         batch_op.create_foreign_key(
             'fk_bangumi_filters_subscription_id',

@@ -21,7 +21,7 @@ def upgrade() -> None:
     op.create_table(
         'system_settings',
         sa.Column('key', sa.String(100), primary_key=True),
-        sa.Column('value', sa.Text(), nullable=False, server_default=''),
+        sa.Column('value', sa.Text(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
     )
 

@@ -1,21 +1,20 @@
 # 运维操作手册
 
-## 操作 SQLite 数据库
+## 操作 MySQL 数据库
 
-数据库在容器内 `/app/data/bangumi.db`，运行时镜像无 sqlite3 CLI，用 Python 自带 sqlite3 模块执行。
+数据存储在 compose 中的 `db` 服务（MySQL 8.0），用 `mysql` CLI 直接在 db 容器内执行。
 
-**模板**（把 SQL 填进对应一行即可）：
+**模板**（把 SQL 填进 `-e` 即可）：
 
 ```bash
-docker compose exec -T backend python <<'EOF'
-import sqlite3
-c = sqlite3.connect('/app/data/bangumi.db')
-print(c.execute("SQL").fetchall())   # 查询
-c.execute("SQL"); c.commit()          # 写入
-EOF
+# 查询
+docker compose exec -T db mysql -ubangumi -pbangumi bangumi -e "SQL"
+# 写入
+docker compose exec -T db mysql -ubangumi -pbangumi bangumi -e "SQL"
 ```
 
 > 开发环境把 `docker compose` 换成 `docker compose -f docker-compose.yml -f docker-compose.dev.yml`。
+> `-p` 与密码之间无空格（MySQL CLI 限制）。密码取自 `.env` 中的 `DB_PASSWORD`，若已修改请替换命令中的 `bangumi`。
 
 ### 核心 SQL
 
@@ -31,6 +30,16 @@ UPDATE episodes SET torrent_url = REPLACE(torrent_url, '旧域名', '新域名')
 DELETE FROM episodes; DELETE FROM subscriptions; DELETE FROM bangumi;
 -- 运行时系统配置（正常用管理 UI「系统设置」修改，会自动失效缓存）
 SELECT key, value FROM system_settings;
+```
+
+### 备份与恢复
+
+```bash
+# 备份（导出到宿主机当前目录）
+docker compose exec -T db mysqldump -ubangumi -pbangumi bangumi > bangumi_backup.sql
+
+# 恢复
+docker compose exec -T db mysql -ubangumi -pbangumi bangumi < bangumi_backup.sql
 ```
 
 > 改完 `.env` 后需 `docker compose up -d` 重建容器使新环境变量生效（`restart` 不重读 .env）。

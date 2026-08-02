@@ -10,7 +10,7 @@ BangumiHelper — 全栈番剧追踪与下载管理应用。聚合蜜柑计划/b
 
 | 层 | 技术 |
 |---|------|
-| 后端 | Python 3.14, FastAPI, async SQLAlchemy + aiosqlite + SQLite, Pydantic v2, Alembic, uv 包管理 |
+| 后端 | Python 3.14, FastAPI, async SQLAlchemy + aiomysql + MySQL, Pydantic v2, Alembic, uv 包管理 |
 | 前端 | Vue 3 + TypeScript, Pinia, Vue Router, Element Plus, Axios, pnpm |
 | 部署 | Docker Compose (backend + Caddy 反代 frontend) |
 
@@ -20,13 +20,13 @@ BangumiHelper — 全栈番剧追踪与下载管理应用。聚合蜜柑计划/b
 # 后端本地开发
 cd backend && uv venv --python 3.14 && source .venv/bin/activate
 uv sync --extra dev                  # 安装依赖（含开发依赖）
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 18001
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 18000
 uv run ruff check . --fix            # lint + 自动修复
 uv run bash migrate.sh upgrade       # 升级数据库
 
 # 前端本地开发
 cd frontend
-pnpm dev                          # :18000
+pnpm dev                          # :18001
 pnpm build                        # vue-tsc + vite build
 pnpm lint                         # eslint --fix
 
@@ -51,7 +51,7 @@ backend/
     ├── main.py               # FastAPI 入口, lifespan 建表
     ├── core/
     │   ├── config.py         # pydantic-settings 读 .env
-    │   ├── database.py       # 异步 SQLAlchemy + aiosqlite
+    │   ├── database.py       # 异步 SQLAlchemy + aiomysql (连接池)
     │   ├── security.py       # JWT + bcrypt
     │   ├── scheduler.py      # APScheduler 定时任务
     │   ├── constants.py      # 常量
@@ -84,7 +84,7 @@ frontend/src/
 - **前端自动导入**: Element Plus 组件/图标无需手动 import
 - **Lint**: Ruff line-length=120, target=py314, 忽略 E501
 - **认证**: JWT, 首个注册用户自动成为管理员
-**配置分层**: 引导配置（SECRET_KEY/DATABASE_URL 等）在 `.env`，改后需 `up -d` 重建容器；运行时配置（MIKAN_URL/蜜柑账号/代理/注册模式 等）存 DB，由管理 UI「系统设置」维护，即时生效
+**配置分层**: 引导配置（SECRET_KEY/DB_* 等）在 `.env`，改后需 `up -d` 重建容器；运行时配置（MIKAN_URL/蜜柑账号/代理/注册模式 等）存 DB，由管理 UI「系统设置」维护，即时生效
 - **时间处理**: 后端统一使用 UTC 时间存储和传输，前端使用 `dayjs.utc().local()` 转为用户本地时间显示。时间工具函数位于 `app/core/utils.py`
 
 ## 详细文档索引
@@ -93,7 +93,7 @@ frontend/src/
 |------|------|
 | 开发指南（新增数据源/下载器、时间处理规范、Docker 开发模式） | [documents/development.md](documents/development.md) |
 | Docker 生产部署、Caddy 配置、数据源刷新 | [documents/deployment.md](documents/deployment.md) |
-| 运维操作（容器内 sqlite3 操作数据库、换 MIKAN_URL 数据处理等） | [documents/operations.md](documents/operations.md) |
+| 运维操作（容器内 mysql 操作数据库、换 MIKAN_URL 数据处理等） | [documents/operations.md](documents/operations.md) |
 
 ## AGENTS.md 维护
 

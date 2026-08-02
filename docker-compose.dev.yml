@@ -7,7 +7,7 @@
 #   Logs:                           docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f
 #   Stop:                           docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 #
-# Frontend dev server: http://localhost:18000 (Vite HMR)
+# Frontend dev server: http://localhost:18001 (Vite HMR)
 # Backend reloads automatically on ./backend/app changes.
 services:
   backend:
@@ -31,4 +31,4 @@ services:
       - API_PROXY_TARGET=http://backend:8000
       - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
     ports:
-      - "18000:18000"
+      - "18001:18001"

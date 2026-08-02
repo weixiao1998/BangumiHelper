@@ -15,7 +15,7 @@
 
 | 组件 | 技术 |
 |------|------|
-| 后端 | FastAPI + Python 3.14 + SQLAlchemy + SQLite + uv |
+| 后端 | FastAPI + Python 3.14 + SQLAlchemy + MySQL (aiomysql) + uv |
 | 前端 | Vue 3 + Vite + Element Plus + TypeScript |
 | 部署 | Docker + Docker Compose |
 
@@ -38,10 +38,10 @@ cp .env.example .env
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 # 4. 访问开发服务（改代码自动热重载）
-# http://localhost:18000
+# http://localhost:18001
 ```
 
-> 生产部署：`docker compose up -d --build`，访问 `http://localhost:8081`，详见 [部署文档](documents/deployment.md)。
+> 生产部署：`docker compose up -d --build`，访问 `http://localhost:8001`，详见 [部署文档](documents/deployment.md)。
 
 ### 本地开发（无 Docker）
 
@@ -56,7 +56,9 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
 | `SECRET_KEY` | JWT密钥（必须修改） | - |
-| `DATABASE_URL` | 数据库连接 | `sqlite+aiosqlite:///./data/bangumi.db` |
+| `DB_TYPE` | 数据库类型（mysql / postgresql） | `mysql` |
+| `DB_HOST` / `DB_USER` / `DB_PASSWORD` | 数据库主机 / 账号 / 密码 | `db` / `bangumi` / `bangumi` |
+| `DB_NAME` | 数据库名 | `bangumi` |
 | `CALENDAR_REFRESH_INTERVAL` | 番剧日历刷新间隔（小时） | `1` |
 
 ### 运行时配置（管理 UI）

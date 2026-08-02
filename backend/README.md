@@ -4,14 +4,14 @@
 
 ## 技术栈
 
-- Python 3.13
+- Python 3.14
 - FastAPI
 - SQLAlchemy
-- SQLite
+- MySQL (aiomysql)
 
 ## 运行
 
 ```bash
-pip install -e .
-uvicorn app.main:app --reload
+uv sync
+uv run uvicorn app.main:app --reload
 ```

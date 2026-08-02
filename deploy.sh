@@ -17,10 +17,10 @@ docker compose up -d --build
 
 echo ""
 echo "=== 部署完成 ==="
-echo "服务已启动，监听端口 8081"
+echo "服务已启动，监听端口 8001"
 echo ""
 echo "下一步："
-echo "  1. 配置宿主机反向代理（Nginx/Caddy），将域名转发到 localhost:8081"
+echo "  1. 配置宿主机反向代理（Nginx/Caddy），将域名转发到 localhost:8001"
 echo "  2. 如需 HTTPS，在宿主机反向代理中配置 TLS 证书"
 echo ""
 echo "常用命令:"

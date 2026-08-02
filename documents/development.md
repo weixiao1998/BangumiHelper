@@ -13,7 +13,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
 - 后端：挂载 `backend/app`，uvicorn `--reload` 自动重载
-- 前端：挂载 `frontend`，Vite HMR 热更新，访问 `http://localhost:18000`
+- 前端：挂载 `frontend`，Vite HMR 热更新，访问 `http://localhost:18001`
 - 前端 API 代理通过 `API_PROXY_TARGET=http://backend:8000` 指向容器网络内的后端
 - 依赖变更（`pyproject.toml` / `pnpm-lock.yaml`）需重新 `--build`
 
@@ -35,10 +35,15 @@ uv sync --extra dev
 
 # 配置环境变量
 export SECRET_KEY="your-secret-key"
-export DATABASE_URL="sqlite+aiosqlite:///./data/bangumi.db"
+# 数据库：本地开发需先启动 MySQL（或连接容器 db，把 DB_HOST 改为 127.0.0.1）
+export DB_TYPE=mysql
+export DB_HOST=127.0.0.1
+export DB_USER=bangumi
+export DB_PASSWORD=bangumi
+export DB_NAME=bangumi
 
-# 启动服务（端口需与前端代理一致，默认 18001）
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 18001
+# 启动服务（端口需与前端代理一致，默认 18000）
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 18000
 ```
 
 ### 前端
@@ -52,7 +57,7 @@ npm install -g pnpm
 # 安装依赖
 pnpm install
 
-# 启动开发服务器（:18000，代理 /api 到 http://localhost:18001）
+# 启动开发服务器（:18001，代理 /api 到 http://localhost:18000）
 pnpm dev
 ```
 
