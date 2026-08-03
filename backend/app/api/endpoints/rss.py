@@ -1,6 +1,6 @@
 from datetime import UTC
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from feedgenerator import Rss201rev2Feed
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,7 @@ router = APIRouter()
 async def get_user_rss_feed(
     user_id: int,
     token: str,
+    request: Request,
     session: AsyncSession = Depends(get_async_session),
 ):
     result = await session.execute(
@@ -42,10 +43,14 @@ async def get_user_rss_feed(
     )
     global_filter = result.scalar_one_or_none()
 
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host", request.url.netloc)
+    feed_link = f"{scheme}://{host}/subscriptions"
+
     feed = Rss201rev2Feed(
-        title=f"{user.username} - BangumiHelper",
-        link="https://example.com",
-        description="用户聚合RSS订阅",
+        title=f"[BangumiHelper] {user.username} 的订阅",
+        link=feed_link,
+        description=f"{user.username} 的聚合订阅 RSS",
     )
 
     for sub in subscriptions:
@@ -53,11 +58,11 @@ async def get_user_rss_feed(
 
         for ep in episodes:
             description_parts = [f"[{sub.bangumi.name}] 第 {ep.episode_number} 集"]
-            if ep.file_size:
-                size_mb = ep.file_size / (1024 * 1024)
-                description_parts.append(f"[{size_mb:.2f} MB]")
             if ep.subtitle_group:
                 description_parts.append(f"字幕组: {ep.subtitle_group}")
+            if ep.file_size:
+                size_mb = ep.file_size / (1024 * 1024)
+                description_parts.append(f"大小: {size_mb:.2f} MB")
 
             link = ep.magnet_url or ep.torrent_url or ""
 
@@ -79,7 +84,7 @@ async def get_user_rss_feed(
             feed.add_item(
                 title=f"[{sub.bangumi.name}] {ep.title}",
                 link=link,
-                description=" ".join(description_parts),
+                description="；".join(description_parts),
                 unique_id=f"episode-{ep.id}",
                 pubdate=pubdate,
                 enclosure=enclosure,

@@ -1,7 +1,7 @@
 import secrets
 from datetime import UTC
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from feedgenerator import Rss201rev2Feed
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -213,6 +213,7 @@ async def download_episodes(
 async def get_rss_feed(
     subscription_id: int,
     token: str,
+    request: Request,
     session: AsyncSession = Depends(get_async_session),
 ):
     from fastapi.responses import Response
@@ -241,19 +242,25 @@ async def get_rss_feed(
 
     episodes = filter_episodes(subscription.bangumi.episodes, subscription.filter, global_filter)
 
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host", request.url.netloc)
+    feed_link = f"{scheme}://{host}/bangumi/{subscription.bangumi.id}"
+
+    feed_desc = f"{subscription.bangumi.name} 的订阅 RSS"
+
     feed = Rss201rev2Feed(
-        title=f"{subscription.bangumi.name} - BangumiHelper",
-        link="https://example.com",
-        description="番剧订阅RSS",
+        title=f"[BangumiHelper] {subscription.bangumi.name}",
+        link=feed_link,
+        description=feed_desc,
     )
 
     for ep in episodes:
         description_parts = [f"第 {ep.episode_number} 集"]
-        if ep.file_size:
-            size_mb = ep.file_size / (1024 * 1024)
-            description_parts.append(f"[{size_mb:.2f} MB]")
         if ep.subtitle_group:
             description_parts.append(f"字幕组: {ep.subtitle_group}")
+        if ep.file_size:
+            size_mb = ep.file_size / (1024 * 1024)
+            description_parts.append(f"大小: {size_mb:.2f} MB")
 
         link = ep.magnet_url or ep.torrent_url or ""
 
@@ -275,7 +282,7 @@ async def get_rss_feed(
         feed.add_item(
             title=ep.title,
             link=link,
-            description=" ".join(description_parts),
+            description="；".join(description_parts),
             unique_id=f"episode-{ep.id}",
             pubdate=pubdate,
             enclosure=enclosure,
