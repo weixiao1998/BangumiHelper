@@ -1,5 +1,6 @@
 import re
 
+from app.core.constants import LANGUAGE_KEYWORDS
 from app.models.models import BangumiFilter, Episode, GlobalFilter
 
 
@@ -27,6 +28,19 @@ def _match_episode_with_filter(episode: Episode, filter_obj: BangumiFilter | Glo
         else:
             if allowed_groups:
                 return False
+
+    language = getattr(filter_obj, "language", None)
+    if language:
+        title = episode.title.lower()
+        languages = [lang.strip() for lang in language.split(",") if lang.strip()]
+        matched = False
+        for lang in languages:
+            keywords = [kw.lower() for kw in (LANGUAGE_KEYWORDS.get(lang) or [lang])]
+            if any(kw in title for kw in keywords):
+                matched = True
+                break
+        if not matched:
+            return False
 
     if filter_obj.regex_pattern:
         try:

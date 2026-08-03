@@ -97,7 +97,13 @@ class SubscriptionBase(BaseModel):
 
 
 class SubscriptionCreate(SubscriptionBase):
-    pass
+    include_keywords: str | None = None
+    exclude_keywords: str | None = None
+    subtitle_groups: str | None = None
+    language: str | None = None
+    regex_pattern: str | None = None
+    min_episode: int | None = None
+    max_episode: int | None = None
 
 
 class SubscriptionUpdate(BaseModel):
@@ -126,6 +132,7 @@ class BangumiFilterBase(BaseModel):
     include_keywords: str | None = None
     exclude_keywords: str | None = None
     subtitle_groups: str | None = None
+    language: str | None = None
     regex_pattern: str | None = None
     min_episode: int | None = None
     max_episode: int | None = None
@@ -139,6 +146,7 @@ class BangumiFilterUpdate(BaseModel):
     include_keywords: str | None = None
     exclude_keywords: str | None = None
     subtitle_groups: str | None = None
+    language: str | None = None
     regex_pattern: str | None = None
     min_episode: int | None = None
     max_episode: int | None = None

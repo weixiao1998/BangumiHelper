@@ -45,7 +45,10 @@
                 :class="{ active: activeSubtitleGroup === group.name }"
                 @mouseenter="activeSubtitleGroup = group.name"
               >
-                <div class="group-name">{{ group.name }}</div>
+                <div class="group-name">
+                  <span class="group-name-text">{{ group.name }}</span>
+                  <el-tag v-if="isGroupSubscribed(group.name)" size="small" type="success" class="group-subscribed-tag">已订阅</el-tag>
+                </div>
                 <div class="group-meta">
                   <span class="episode-count">{{ group.episodes.length }} 集</span>
                   <span class="latest-time">{{ formatTime(group.latestPublishTime) }}</span>
@@ -111,23 +114,95 @@
       </div>
     </template>
 
-    <el-dialog v-model="showSubscribeDialog" title="订阅设置" width="500px">
+    <el-dialog v-model="showSubscribeDialog" title="订阅设置" width="560px">
       <el-form :model="subscribeForm" label-width="100px">
         <el-form-item label="自动下载">
           <el-switch v-model="subscribeForm.auto_download" />
         </el-form-item>
-        <el-form-item v-if="subscribeForm.auto_download" label="下载器">
-          <el-select v-model="subscribeForm.downloader_id" placeholder="选择下载器">
-            <el-option v-for="d in downloaders" :key="d.id" :label="d.name" :value="d.id" />
+        <template v-if="subscribeForm.auto_download">
+          <el-form-item label="下载器">
+            <el-select v-model="subscribeForm.downloader_id" placeholder="选择下载器" style="width: 100%">
+              <el-option v-for="d in downloaders" :key="d.id" :label="d.name" :value="d.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="保存路径">
+            <el-input v-model="subscribeForm.save_path" placeholder="可选" />
+          </el-form-item>
+        </template>
+
+        <el-divider content-position="left">过滤条件</el-divider>
+
+        <el-form-item label="语言">
+          <el-select
+            v-model="subscribeForm.language"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="选择或输入语言"
+            style="width: 100%"
+          >
+            <el-option v-for="lang in languageOptions" :key="lang" :label="lang" :value="lang" />
           </el-select>
         </el-form-item>
-        <el-form-item label="保存路径">
-          <el-input v-model="subscribeForm.save_path" placeholder="可选" />
+        <el-form-item label="包含关键词">
+          <el-select
+            v-model="subscribeForm.include_keywords"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="输入关键词后回车添加"
+            popper-class="hide-select-dropdown"
+            style="width: 100%"
+          />
         </el-form-item>
+        <el-form-item label="排除关键词">
+          <el-select
+            v-model="subscribeForm.exclude_keywords"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="输入关键词后回车添加"
+            popper-class="hide-select-dropdown"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="字幕组">
+          <el-select
+            v-model="subscribeForm.subtitle_groups"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            :placeholder="subtitleGroupOptions.length ? '选择或输入字幕组' : '输入字幕组名称后回车添加'"
+            style="width: 100%"
+          >
+            <el-option v-for="sg in subtitleGroupOptions" :key="sg" :label="sg" :value="sg" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button link type="primary" @click="showSubscribeAdvanced = !showSubscribeAdvanced">
+            {{ showSubscribeAdvanced ? '收起高级选项' : '展开高级选项' }}
+          </el-button>
+        </el-form-item>
+        <template v-if="showSubscribeAdvanced">
+          <el-form-item label="集数范围">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <el-input-number v-model="subscribeForm.min_episode" :min="0" :max="9999" placeholder="最小" controls-position="right" />
+              <span>—</span>
+              <el-input-number v-model="subscribeForm.max_episode" :min="0" :max="9999" placeholder="最大" controls-position="right" />
+            </div>
+          </el-form-item>
+          <el-form-item label="正则匹配">
+            <el-input v-model="subscribeForm.regex_pattern" placeholder="正则表达式匹配标题" />
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="showSubscribeDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleSubscribe">确定</el-button>
+        <el-button type="primary" :loading="subscribing" @click="handleSubscribe">确定</el-button>
       </template>
     </el-dialog>
 
@@ -149,6 +224,7 @@ import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import { bangumiApi, subscriptionApi, downloaderApi } from '@/api'
+import { LANGUAGE_OPTION_VALUES, LANGUAGE_KEYWORDS } from '@/constants'
 import FilterDialog from '@/components/FilterDialog.vue'
 
 dayjs.extend(utc)
@@ -157,6 +233,7 @@ interface BangumiFilter {
   include_keywords: string | null
   exclude_keywords: string | null
   subtitle_groups: string | null
+  language: string | null
   regex_pattern: string | null
   min_episode: number | null
   max_episode: number | null
@@ -206,10 +283,39 @@ const downloaders = ref<Downloader[]>([])
 const showFilterDialog = ref(false)
 
 const showSubscribeDialog = ref(false)
+const subscribing = ref(false)
+const showSubscribeAdvanced = ref(false)
 const subscribeForm = ref({
   auto_download: false,
   downloader_id: null as number | null,
   save_path: '',
+  language: [] as string[],
+  include_keywords: [] as string[],
+  exclude_keywords: [] as string[],
+  subtitle_groups: [] as string[],
+  regex_pattern: '',
+  min_episode: undefined as number | undefined,
+  max_episode: undefined as number | undefined,
+})
+
+const languageOptions = LANGUAGE_OPTION_VALUES
+
+watch(showSubscribeDialog, (val) => {
+  if (val) {
+    subscribeForm.value = {
+      auto_download: false,
+      downloader_id: null,
+      save_path: '',
+      language: [],
+      include_keywords: [],
+      exclude_keywords: [],
+      subtitle_groups: [],
+      regex_pattern: '',
+      min_episode: undefined,
+      max_episode: undefined,
+    }
+    showSubscribeAdvanced.value = false
+  }
 })
 
 const overflowStates = ref<Record<number, boolean>>({})
@@ -318,6 +424,16 @@ function matchEpisode(episode: Episode): boolean {
     }
   }
 
+  if (f.language) {
+    const languages = f.language.split(',').map(s => s.trim()).filter(Boolean)
+    const title = episode.title.toLowerCase()
+    const matched = languages.some((lang) => {
+      const keywords = (LANGUAGE_KEYWORDS[lang] || [lang]).map(k => k.toLowerCase())
+      return keywords.some(kw => title.includes(kw))
+    })
+    if (!matched) return false
+  }
+
   if (f.regex_pattern) {
     try {
       if (!new RegExp(f.regex_pattern).test(episode.title)) return false
@@ -330,6 +446,13 @@ function matchEpisode(episode: Episode): boolean {
   if (f.max_episode !== null && f.max_episode !== undefined && episode.episode_number > f.max_episode) return false
 
   return true
+}
+
+function isGroupSubscribed(groupName: string): boolean {
+  const f = subscriptionFilter.value
+  if (!f?.subtitle_groups) return false
+  const allowed = f.subtitle_groups.split(',').map(s => s.trim()).filter(Boolean)
+  return allowed.some(a => a.toLowerCase() && groupName.toLowerCase().includes(a.toLowerCase()))
 }
 
 async function fetchBangumi() {
@@ -365,19 +488,50 @@ async function fetchDownloaders() {
 }
 
 async function handleSubscribe() {
+  subscribing.value = true
   try {
-    await subscriptionApi.create({
+    const payload: Record<string, unknown> = {
       bangumi_id: bangumiId.value,
       auto_download: subscribeForm.value.auto_download,
-      downloader_id: subscribeForm.value.downloader_id ?? undefined,
-      save_path: subscribeForm.value.save_path || undefined,
-    })
+    }
+    if (subscribeForm.value.auto_download) {
+      if (subscribeForm.value.downloader_id) {
+        payload.downloader_id = subscribeForm.value.downloader_id
+      }
+      if (subscribeForm.value.save_path) {
+        payload.save_path = subscribeForm.value.save_path
+      }
+    }
+    if (subscribeForm.value.language.length > 0) {
+      payload.language = subscribeForm.value.language.join(',')
+    }
+    if (subscribeForm.value.include_keywords.length > 0) {
+      payload.include_keywords = subscribeForm.value.include_keywords.join(',')
+    }
+    if (subscribeForm.value.exclude_keywords.length > 0) {
+      payload.exclude_keywords = subscribeForm.value.exclude_keywords.join(',')
+    }
+    if (subscribeForm.value.subtitle_groups.length > 0) {
+      payload.subtitle_groups = subscribeForm.value.subtitle_groups.join(',')
+    }
+    if (subscribeForm.value.regex_pattern) {
+      payload.regex_pattern = subscribeForm.value.regex_pattern
+    }
+    if (subscribeForm.value.min_episode !== undefined && subscribeForm.value.min_episode !== null) {
+      payload.min_episode = subscribeForm.value.min_episode
+    }
+    if (subscribeForm.value.max_episode !== undefined && subscribeForm.value.max_episode !== null) {
+      payload.max_episode = subscribeForm.value.max_episode
+    }
+    await subscriptionApi.create(payload)
     ElMessage.success('订阅成功')
     showSubscribeDialog.value = false
     isSubscribed.value = true
     await fetchBangumi()
   } catch {
     // Error handled by interceptor
+  } finally {
+    subscribing.value = false
   }
 }
 
@@ -556,12 +710,22 @@ onMounted(() => {
   }
 
   .group-name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+
+    .group-name-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .group-subscribed-tag {
+      flex-shrink: 0;
+    }
   }
 
   .group-meta {

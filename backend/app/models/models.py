@@ -92,6 +92,7 @@ class BangumiFilter(Base):
     include_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
     exclude_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
     subtitle_groups: Mapped[str | None] = mapped_column(Text, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(100), nullable=True)
     regex_pattern: Mapped[str | None] = mapped_column(String(500), nullable=True)
     min_episode: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_episode: Mapped[int | None] = mapped_column(Integer, nullable=True)

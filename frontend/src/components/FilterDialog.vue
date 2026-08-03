@@ -46,6 +46,25 @@
         </el-select>
       </el-form-item>
 
+      <el-form-item label="语言">
+        <el-select
+          v-model="form.language"
+          multiple
+          filterable
+          allow-create
+          default-first-option
+          placeholder="选择或输入语言"
+          style="width: 100%"
+        >
+          <el-option
+            v-for="lang in languageOptions"
+            :key="lang"
+            :label="lang"
+            :value="lang"
+          />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="集数范围">
         <div style="display: flex; align-items: center; gap: 8px;">
           <el-input-number v-model="form.min_episode" :min="0" :max="9999" placeholder="最小" controls-position="right" />
@@ -79,11 +98,13 @@
 import { ref, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { subscriptionApi } from '@/api'
+import { LANGUAGE_OPTION_VALUES } from '@/constants'
 
 interface FilterData {
   include_keywords: string[]
   exclude_keywords: string[]
   subtitle_groups: string[]
+  language: string[]
   regex_pattern: string
   min_episode: number | undefined
   max_episode: number | undefined
@@ -96,6 +117,7 @@ const props = defineProps<{
     include_keywords: string | null
     exclude_keywords: string | null
     subtitle_groups: string | null
+    language: string | null
     regex_pattern: string | null
     min_episode: number | null
     max_episode: number | null
@@ -128,10 +150,13 @@ const form = ref<FilterData>({
   include_keywords: [],
   exclude_keywords: [],
   subtitle_groups: [],
+  language: [],
   regex_pattern: '',
   min_episode: undefined,
   max_episode: undefined,
 })
+
+const languageOptions = LANGUAGE_OPTION_VALUES
 
 watch(() => props.modelValue, (val) => {
   if (val && props.filterData) {
@@ -139,6 +164,7 @@ watch(() => props.modelValue, (val) => {
       include_keywords: parseCommaList(props.filterData.include_keywords),
       exclude_keywords: parseCommaList(props.filterData.exclude_keywords),
       subtitle_groups: parseCommaList(props.filterData.subtitle_groups),
+      language: parseCommaList(props.filterData.language),
       regex_pattern: props.filterData.regex_pattern || '',
       min_episode: props.filterData.min_episode ?? undefined,
       max_episode: props.filterData.max_episode ?? undefined,
@@ -149,6 +175,7 @@ watch(() => props.modelValue, (val) => {
       include_keywords: [],
       exclude_keywords: [],
       subtitle_groups: [],
+      language: [],
       regex_pattern: '',
       min_episode: undefined,
       max_episode: undefined,
@@ -158,26 +185,16 @@ watch(() => props.modelValue, (val) => {
 })
 
 function buildPayload() {
-  const data: Record<string, unknown> = {}
-  if (form.value.include_keywords.length > 0) {
-    data.include_keywords = form.value.include_keywords.join(',')
+  // 始终提交所有字段: 清空(取消选择)的字段以 null 提交, 后端才会将其重置
+  return {
+    include_keywords: form.value.include_keywords.join(',') || null,
+    exclude_keywords: form.value.exclude_keywords.join(',') || null,
+    subtitle_groups: form.value.subtitle_groups.join(',') || null,
+    language: form.value.language.join(',') || null,
+    regex_pattern: form.value.regex_pattern || null,
+    min_episode: form.value.min_episode ?? null,
+    max_episode: form.value.max_episode ?? null,
   }
-  if (form.value.exclude_keywords.length > 0) {
-    data.exclude_keywords = form.value.exclude_keywords.join(',')
-  }
-  if (form.value.subtitle_groups.length > 0) {
-    data.subtitle_groups = form.value.subtitle_groups.join(',')
-  }
-  if (form.value.regex_pattern) {
-    data.regex_pattern = form.value.regex_pattern
-  }
-  if (form.value.min_episode !== undefined && form.value.min_episode !== null) {
-    data.min_episode = form.value.min_episode
-  }
-  if (form.value.max_episode !== undefined && form.value.max_episode !== null) {
-    data.max_episode = form.value.max_episode
-  }
-  return data
 }
 
 async function handleSave() {

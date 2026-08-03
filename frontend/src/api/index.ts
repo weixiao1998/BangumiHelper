@@ -49,7 +49,19 @@ export const bangumiApi = {
 
 export const subscriptionApi = {
   getAll: () => api.get('/subscriptions'),
-  create: (data: { bangumi_id: number; auto_download?: boolean; downloader_id?: number; save_path?: string }) =>
+  create: (data: {
+    bangumi_id: number
+    auto_download?: boolean
+    downloader_id?: number
+    save_path?: string
+    include_keywords?: string
+    exclude_keywords?: string
+    subtitle_groups?: string
+    language?: string
+    regex_pattern?: string
+    min_episode?: number
+    max_episode?: number
+  } & Record<string, unknown>) =>
     api.post('/subscriptions', data),
   update: (id: number, data: Record<string, unknown>) => api.put(`/subscriptions/${id}`, data),
   delete: (id: number) => api.delete(`/subscriptions/${id}`),

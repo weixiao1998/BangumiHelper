@@ -290,26 +290,15 @@ function parseCommaList(val: string | null): string[] {
 }
 
 function buildFilterPayload(): Record<string, unknown> {
-  const data: Record<string, unknown> = {}
-  if (globalFilterForm.include_keywords.length > 0) {
-    data.include_keywords = globalFilterForm.include_keywords.join(',')
+  // 始终提交所有字段: 清空(取消选择)的字段以 null 提交, 后端才会将其重置
+  return {
+    include_keywords: globalFilterForm.include_keywords.join(',') || null,
+    exclude_keywords: globalFilterForm.exclude_keywords.join(',') || null,
+    subtitle_groups: globalFilterForm.subtitle_groups.join(',') || null,
+    regex_pattern: globalFilterForm.regex_pattern || null,
+    min_episode: globalFilterForm.min_episode ?? null,
+    max_episode: globalFilterForm.max_episode ?? null,
   }
-  if (globalFilterForm.exclude_keywords.length > 0) {
-    data.exclude_keywords = globalFilterForm.exclude_keywords.join(',')
-  }
-  if (globalFilterForm.subtitle_groups.length > 0) {
-    data.subtitle_groups = globalFilterForm.subtitle_groups.join(',')
-  }
-  if (globalFilterForm.regex_pattern) {
-    data.regex_pattern = globalFilterForm.regex_pattern
-  }
-  if (globalFilterForm.min_episode !== undefined && globalFilterForm.min_episode !== null) {
-    data.min_episode = globalFilterForm.min_episode
-  }
-  if (globalFilterForm.max_episode !== undefined && globalFilterForm.max_episode !== null) {
-    data.max_episode = globalFilterForm.max_episode
-  }
-  return data
 }
 
 function loadFilterForm(filter: GlobalFilterData) {

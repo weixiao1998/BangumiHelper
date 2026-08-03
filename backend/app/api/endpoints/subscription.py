@@ -81,6 +81,30 @@ async def create_subscription(
     )
 
     session.add(subscription)
+    await session.flush()
+
+    filter_fields = subscription_create.model_dump(exclude_unset=True)
+    filter_field_names = {
+        "include_keywords",
+        "exclude_keywords",
+        "subtitle_groups",
+        "language",
+        "regex_pattern",
+        "min_episode",
+        "max_episode",
+    }
+    filter_fields = {k: v for k, v in filter_fields.items() if k in filter_field_names and v is not None}
+
+    if filter_fields:
+        session.add(
+            BangumiFilter(
+                user_id=current_user.id,
+                subscription_id=subscription.id,
+                bangumi_name=bangumi.name,
+                **filter_fields,
+            )
+        )
+
     await session.commit()
 
     result = await session.execute(

@@ -68,6 +68,7 @@ interface BangumiFilter {
   include_keywords: string | null
   exclude_keywords: string | null
   subtitle_groups: string | null
+  language: string | null
   regex_pattern: string | null
   min_episode: number | null
   max_episode: number | null
