@@ -9,103 +9,103 @@
     <el-skeleton v-if="loading" :rows="10" animated style="margin-top: 20px" />
 
     <template v-else-if="bangumi">
-      <el-row :gutter="20" style="margin-top: 20px">
-        <el-col :span="6">
-          <el-image :src="bangumi.cover || '/placeholder.png'" fit="cover" style="width: 100%; border-radius: 8px" />
-        </el-col>
-        <el-col :span="18">
-          <h2>{{ bangumi.name }}</h2>
-          <p class="meta">
-            <el-tag>更新: {{ bangumi.update_time }}</el-tag>
-            <el-tag type="info">{{ bangumi.data_source }}</el-tag>
-            <el-tag v-if="subscriptionFilter" type="warning">已过滤</el-tag>
-          </p>
+      <div class="detail-layout">
+        <el-image :src="bangumi.cover || '/placeholder.png'" fit="cover" class="cover-image" />
+        <div class="detail-content">
+          <div class="detail-header">
+            <div class="detail-header-left">
+              <h2>{{ bangumi.name }}</h2>
+              <p class="meta">
+                <el-tag>更新: {{ bangumi.update_time }}</el-tag>
+                <el-tag type="info">{{ bangumi.data_source }}</el-tag>
+                <el-tag v-if="subscriptionFilter" type="warning">已过滤</el-tag>
+              </p>
+            </div>
+            <div class="detail-header-actions">
+              <template v-if="!isSubscribed">
+                <el-button type="primary" @click="showSubscribeDialog = true">订阅</el-button>
+              </template>
+              <template v-else>
+                <el-button type="danger" @click="handleUnsubscribe">取消订阅</el-button>
+                <el-button @click="showFilterDialog = true">过滤器</el-button>
+              </template>
+              <el-button plain :loading="refreshing" @click="handleRefreshEpisodes">
+                刷新剧集
+              </el-button>
+            </div>
+          </div>
           <p v-if="bangumi.description" class="description">{{ bangumi.description }}</p>
 
-          <div class="actions">
-            <el-button v-if="!isSubscribed" type="primary" @click="showSubscribeDialog = true">订阅</el-button>
-            <el-button v-else type="danger" @click="handleUnsubscribe">取消订阅</el-button>
-            <el-button v-if="isSubscribed" @click="showFilterDialog = true">过滤器</el-button>
-          </div>
-        </el-col>
-      </el-row>
-
-      <el-divider />
-
-      <div class="episode-section-header">
-        <h3 style="margin: 0;">剧集列表</h3>
-        <el-button type="primary" :loading="refreshing" @click="handleRefreshEpisodes">
-          刷新剧集
-        </el-button>
-      </div>
-      <div class="subtitle-group-layout">
-        <div class="subtitle-sidebar">
-          <div
-            v-for="group in subtitleGroups"
-            :key="group.name"
-            class="subtitle-group-item"
-            :class="{ active: activeSubtitleGroup === group.name }"
-            @mouseenter="activeSubtitleGroup = group.name"
-          >
-            <div class="group-name">{{ group.name }}</div>
-            <div class="group-meta">
-              <span class="episode-count">{{ group.episodes.length }} 集</span>
-              <span class="latest-time">{{ formatTime(group.latestPublishTime) }}</span>
-            </div>
-          </div>
-          <div v-if="subtitleGroups.length === 0" class="sidebar-empty">
-            暂无剧集
-          </div>
-        </div>
-        <div class="episode-list-panel">
-          <template v-if="filteredEpisodes.length > 0">
-            <div
-              v-for="ep in filteredEpisodes"
-              :key="ep.id"
-              class="episode-card"
-              :class="{ 'filtered-out': subscriptionFilter && !matchEpisode(ep) }"
-            >
-              <div class="episode-card-body">
-                <span class="episode-badge">第 {{ ep.episode_number }} 集</span>
-                <el-tooltip :disabled="!overflowStates[ep.id]" :content="ep.title" placement="top">
-                  <span
-                    :ref="el => registerTitleRef(el, ep.id)"
-                    class="episode-title"
-                  >
-                    {{ ep.title }}
-                  </span>
-                </el-tooltip>
-                <span class="episode-time">{{ formatTime(ep.publish_time) }}</span>
+          <div class="subtitle-group-layout">
+            <div class="subtitle-sidebar">
+              <div
+                v-for="group in subtitleGroups"
+                :key="group.name"
+                class="subtitle-group-item"
+                :class="{ active: activeSubtitleGroup === group.name }"
+                @mouseenter="activeSubtitleGroup = group.name"
+              >
+                <div class="group-name">{{ group.name }}</div>
+                <div class="group-meta">
+                  <span class="episode-count">{{ group.episodes.length }} 集</span>
+                  <span class="latest-time">{{ formatTime(group.latestPublishTime) }}</span>
+                </div>
               </div>
-              <div class="episode-card-actions">
-                <el-button
-                  v-if="ep.magnet_url"
-                  size="small"
-                  type="primary"
-                  @click="handleDownload(ep, 'magnet')"
-                >
-                  磁力
-                </el-button>
-                <el-button
-                  v-if="ep.torrent_url"
-                  size="small"
-                  type="success"
-                  @click="handleDownload(ep, 'torrent')"
-                >
-                  种子
-                </el-button>
-                <el-button
-                  v-if="!ep.magnet_url && !ep.torrent_url"
-                  size="small"
-                  disabled
-                >
-                  无下载
-                </el-button>
+              <div v-if="subtitleGroups.length === 0" class="sidebar-empty">
+                暂无剧集
               </div>
             </div>
-          </template>
-          <div v-else class="episode-list-empty">
-            该字幕组暂无剧集
+            <div class="episode-list-panel">
+              <template v-if="filteredEpisodes.length > 0">
+                <div
+                  v-for="ep in filteredEpisodes"
+                  :key="ep.id"
+                  class="episode-card"
+                  :class="{ 'filtered-out': subscriptionFilter && !matchEpisode(ep) }"
+                >
+                  <div class="episode-card-body">
+                    <span class="episode-badge">第 {{ ep.episode_number }} 集</span>
+                    <el-tooltip :disabled="!overflowStates[ep.id]" :content="ep.title" placement="top">
+                      <span
+                        :ref="el => registerTitleRef(el, ep.id)"
+                        class="episode-title"
+                      >
+                        {{ ep.title }}
+                      </span>
+                    </el-tooltip>
+                    <span class="episode-time">{{ formatTime(ep.publish_time) }}</span>
+                  </div>
+                  <div class="episode-card-actions">
+                    <el-button
+                      v-if="ep.magnet_url"
+                      size="small"
+                      type="primary"
+                      @click="handleDownload(ep, 'magnet')"
+                    >
+                      磁力
+                    </el-button>
+                    <el-button
+                      v-if="ep.torrent_url"
+                      size="small"
+                      type="success"
+                      @click="handleDownload(ep, 'torrent')"
+                    >
+                      种子
+                    </el-button>
+                    <el-button
+                      v-if="!ep.magnet_url && !ep.torrent_url"
+                      size="small"
+                      disabled
+                    >
+                      无下载
+                    </el-button>
+                  </div>
+                </div>
+              </template>
+              <div v-else class="episode-list-empty">
+                该字幕组暂无剧集
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -460,8 +460,39 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+.detail-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin-top: 20px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+
+    .cover-image {
+      width: 100%;
+    }
+  }
+}
+
+.cover-image {
+  width: 300px;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.detail-content {
+  flex: 1;
+  min-width: 0;
+
+  h2 {
+    line-height: 1.4;
+  }
+}
+
 .meta {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
 }
@@ -472,14 +503,24 @@ onMounted(() => {
   line-height: 1.6;
 }
 
-.actions {
-  margin-top: 20px;
-}
-
-.episode-section-header {
+.detail-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.detail-header-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .subtitle-group-layout {
@@ -495,7 +536,7 @@ onMounted(() => {
   border-right: 1px solid #e4e7ed;
   padding-right: 12px;
   overflow-y: auto;
-  max-height: 600px;
+  max-height: calc(100vh - 280px);
 }
 
 .subtitle-group-item {
@@ -552,7 +593,7 @@ onMounted(() => {
 .episode-list-panel {
   flex: 1;
   overflow-y: auto;
-  max-height: 600px;
+  max-height: calc(100vh - 280px);
   padding-left: 4px;
 }
 
