@@ -27,6 +27,11 @@ _EPISODE_REFRESH_SLEEP_SECONDS = 2.0
 _EPISODE_MIN_INTERVAL = 60 * 60          # 1h (秒)
 _EPISODE_MAX_INTERVAL = 12 * 60 * 60     # 12h (秒)
 
+# 滑动窗口：每轮最多刷新多少「到期」番剧。番剧总量增长时单轮请求量固定，不会无限上升。
+_EPISODE_REFRESH_BATCH_SIZE = 20
+# 最近一集发表时间距今超过该天数即视为停更，不再自动刷新（其后需手动刷新或该番剧恢复更新）。
+_EPISODE_STALE_DAYS = 15
+
 
 async def refresh_bangumi_calendar():
     logger.info(f"[Scheduler] Starting bangumi calendar refresh at {datetime.now()}")
@@ -68,11 +73,20 @@ async def refresh_bangumi_calendar():
     logger.info(f"[Scheduler] Bangumi calendar refresh completed at {datetime.now()}")
 
 
-async def refresh_episodes(max_bangumi: int | None = None):
-    """定时刷新番剧剧集：按每个番剧自身的自适应 CD 决定本轮是否刷新。
+def _as_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
 
-    每个番剧记录 last_episode_check_at / episode_check_interval；
-    只在距上次检查超过自身 CD 时才抓取，其余番剧本轮跳过，避免每次全量刷新。
+
+async def refresh_episodes(max_bangumi: int | None = None):
+    """定时刷新番剧剧集：自适应 CD + 停更判定 + 每轮限量滑动刷新。
+
+    - 每个番剧记录 last_episode_check_at / episode_check_interval（自适应 CD）；
+    - 距上次检查超过自身 CD 才计入候选；但每轮最多只取
+      _EPISODE_REFRESH_BATCH_SIZE 个「最久未刷」的到期番剧（滑动窗口），
+      番剧总量增长时单轮请求量固定，不会无限上升；
+    - 最近一集发表时间距今超过 _EPISODE_STALE_DAYS 天视为停更，不再自动刷新。
     仅入库，不触发下载。
     """
     logger.info(f"[Scheduler] Starting episode refresh at {datetime.now()}")
@@ -89,17 +103,35 @@ async def refresh_episodes(max_bangumi: int | None = None):
             if max_bangumi is not None:
                 bangumi_list = bangumi_list[:max_bangumi]
 
+            # 1) 筛选到期（距上次检查 >= 自身 CD）且未停更的番剧
+            due: list[tuple[datetime, Bangumi]] = []
             for bangumi in bangumi_list:
-                # 未到自身 CD 的番剧跳过，不请求数据源
                 interval = bangumi.episode_check_interval or _EPISODE_MIN_INTERVAL
-                last_check = bangumi.last_episode_check_at
-                if last_check is not None:
-                    if last_check.tzinfo is None:
-                        last_check = last_check.replace(tzinfo=UTC)
-                    if (now - last_check).total_seconds() < interval:
-                        continue
+                last_check = _as_utc(bangumi.last_episode_check_at)
+                if last_check is not None and (now - last_check).total_seconds() < interval:
+                    continue
+
+                # 停更判定：最近一集发表时间距今超过 15 天（且已检查过）
+                recent_publish = _as_utc(
+                    max((ep.publish_time for ep in bangumi.episodes if ep.publish_time), default=None)
+                )
+                if (
+                    last_check is not None
+                    and recent_publish is not None
+                    and (now - recent_publish).days > _EPISODE_STALE_DAYS
+                ):
+                    continue
 
                 checked += 1
+                # 从未检查过的排最前（优先建立基线）
+                due.append((last_check if last_check is not None else datetime(1970, 1, 1, tzinfo=UTC), bangumi))
+
+            # 2) 滑动窗口：按上次检查时间升序（越久未刷越优先）只取前 BATCH 个
+            due.sort(key=lambda x: x[0])
+            batch = due[:_EPISODE_REFRESH_BATCH_SIZE]
+
+            for _, bangumi in batch:
+                interval = bangumi.episode_check_interval or _EPISODE_MIN_INTERVAL
                 try:
                     if bangumi.data_source not in sources:
                         sources[bangumi.data_source] = await get_data_source(bangumi.data_source)
