@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 同一分支/PR 只保留最新一轮，避免旧提交占满 runner
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: 后端 (uv)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: 安装 uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: 安装依赖（含 dev）
+        run: uv sync --extra dev
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: 类型检查 (mypy)
+        run: uv run mypy app || echo "::warning::mypy 存在存量问题，暂不作为阻断"
+
+      - name: 测试 (pytest)
+        run: uv run pytest -q
+
+  frontend:
+    name: 前端 (pnpm)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: 安装依赖（锁定）
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建（含 vue-tsc 类型检查）
+        run: pnpm build
+
+      - name: Lint (eslint)
+        run: pnpm exec eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts
