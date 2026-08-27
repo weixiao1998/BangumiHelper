@@ -324,8 +324,6 @@ class SystemSettings(BaseModel):
     mikan_url: str = "https://mikanani.me"
     mikan_username: str = ""
     mikan_password: str = ""
-    bangumi_moe_url: str = "https://bangumi.moe"
-    dmhy_url: str = "https://share.dmhy.org"
     proxy: str = ""
     registration_mode: str = "open"
 
@@ -334,8 +332,6 @@ class SystemSettings(BaseModel):
 class SystemSettingsResponse(BaseModel):
     mikan_url: str
     mikan_username: str
-    bangumi_moe_url: str
-    dmhy_url: str
     proxy: str
     registration_mode: str
 
@@ -345,7 +341,5 @@ class SystemSettingsUpdate(BaseModel):
     mikan_url: str | None = None
     mikan_username: str | None = None
     mikan_password: str | None = None
-    bangumi_moe_url: str | None = None
-    dmhy_url: str | None = None
     proxy: str | None = None
     registration_mode: str | None = None

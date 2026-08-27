@@ -5,8 +5,6 @@
       <div class="actions">
         <el-select v-model="dataSource" placeholder="选择数据源" style="width: 150px" @change="fetchCalendar">
           <el-option label="蜜柑计划" value="mikan" />
-          <el-option label="bangumi.moe" value="bangumi_moe" />
-          <el-option label="动漫花园" value="dmhy" />
         </el-select>
         <el-button v-if="userStore.isAdmin" type="primary" :loading="refreshing" @click="refreshCalendar">
           刷新列表

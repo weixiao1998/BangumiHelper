@@ -1,13 +1,9 @@
 from app.core.system_config import SystemConfig
-from app.services.data_sources.bangumi_moe import BangumiMoeDataSource
 from app.services.data_sources.base import BaseDataSource
-from app.services.data_sources.dmhy import DmhyDataSource
 from app.services.data_sources.mikan import MikanDataSource
 
 _data_sources = {
     "mikan": MikanDataSource,
-    "dmhy": DmhyDataSource,
-    "bangumi_moe": BangumiMoeDataSource,
 }
 
 

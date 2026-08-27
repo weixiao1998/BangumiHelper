@@ -4,7 +4,7 @@ AI agent 操作指南。修改代码前必须阅读。
 
 ## 项目
 
-BangumiHelper — 全栈番剧追踪与下载管理应用。聚合蜜柑计划/bangumi.moe/动漫花园数据源，推送至 qBittorrent/Transmission/Aria2。多用户 + JWT 认证，首个注册用户自动成为管理员。
+BangumiHelper — 全栈番剧追踪与下载管理应用。聚合蜜柑计划数据源，推送至 qBittorrent/Transmission/Aria2。多用户 + JWT 认证，首个注册用户自动成为管理员。
 
 ## 技术栈
 
@@ -61,7 +61,7 @@ backend/
     ├── schemas/schemas.py    # 所有 Pydantic schema (单文件)
     ├── api/endpoints/        # 路由: auth, user, bangumi, subscription, downloader, health, settings, invite_codes
     └── services/
-        ├── data_sources/     # 插件化数据源: base, mikan, bangumi_moe, dmhy
+        ├── data_sources/     # 插件化数据源: base, mikan
         └── downloaders/      # 插件化下载器: base, qbittorrent, transmission, aria2
 
 frontend/src/

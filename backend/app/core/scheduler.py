@@ -16,7 +16,7 @@ from app.services.data_sources import get_available_data_sources, get_data_sourc
 scheduler: AsyncIOScheduler | None = None
 
 # 定时刷新剧集时的节流参数：串行抓取、番剧间限速，避免触发数据源限流。
-# 注意 max_page 对 mikan 无效（仅解析单番剧详情页），对 dmhy 则是翻页数，取与手动刷新一致的 3 页以防漏集。
+# max_page 对 mikan 无效（仅解析单番剧详情页），取与手动刷新一致的默认值。
 _EPISODE_REFRESH_MAX_PAGE = 3
 _EPISODE_REFRESH_SLEEP_SECONDS = 2.0
 
@@ -131,6 +131,9 @@ async def refresh_episodes(max_bangumi: int | None = None):
             batch = due[:_EPISODE_REFRESH_BATCH_SIZE]
 
             for _, bangumi in batch:
+                # 已移除的数据源（历史遗留行）不再自动刷新，直接跳过，避免每次报错
+                if bangumi.data_source not in get_available_data_sources():
+                    continue
                 interval = bangumi.episode_check_interval or _EPISODE_MIN_INTERVAL
                 try:
                     if bangumi.data_source not in sources:

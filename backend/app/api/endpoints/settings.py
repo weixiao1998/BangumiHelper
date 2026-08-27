@@ -19,8 +19,6 @@ def _to_response(cfg) -> SystemSettingsResponse:
     return SystemSettingsResponse(
         mikan_url=cfg.mikan_url,
         mikan_username=cfg.mikan_username,
-        bangumi_moe_url=cfg.bangumi_moe_url,
-        dmhy_url=cfg.dmhy_url,
         proxy=cfg.proxy,
         registration_mode=cfg.registration_mode,
     )

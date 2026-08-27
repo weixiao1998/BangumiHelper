@@ -133,8 +133,6 @@
             <el-form-item label="数据源">
               <el-select v-model="dataSource" style="width: 200px">
                 <el-option label="蜜柑计划" value="mikan" />
-                <el-option label="bangumi.moe" value="bangumi_moe" />
-                <el-option label="动漫花园" value="dmhy" />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -155,12 +153,6 @@
             </el-form-item>
             <el-form-item label="蜜柑密码">
               <el-input v-model="systemForm.mikan_password" type="password" show-password placeholder="留空表示不修改" />
-            </el-form-item>
-            <el-form-item label="bangumi.moe 地址">
-              <el-input v-model="systemForm.bangumi_moe_url" placeholder="https://bangumi.moe" />
-            </el-form-item>
-            <el-form-item label="动漫花园地址">
-              <el-input v-model="systemForm.dmhy_url" placeholder="https://share.dmhy.org" />
             </el-form-item>
             <el-form-item label="代理地址">
               <el-input v-model="systemForm.proxy" placeholder="可选，如 http://127.0.0.1:7890" />
@@ -243,8 +235,6 @@ const systemForm = reactive({
   mikan_url: '',
   mikan_username: '',
   mikan_password: '',
-  bangumi_moe_url: '',
-  dmhy_url: '',
   proxy: '',
   registration_mode: 'open',
 })
@@ -458,8 +448,6 @@ async function fetchSystemSettings() {
     systemForm.mikan_url = data.mikan_url
     systemForm.mikan_username = data.mikan_username
     systemForm.mikan_password = ''
-    systemForm.bangumi_moe_url = data.bangumi_moe_url
-    systemForm.dmhy_url = data.dmhy_url
     systemForm.proxy = data.proxy
     systemForm.registration_mode = data.registration_mode
   } catch {
@@ -471,8 +459,6 @@ async function handleUpdateSystem() {
   const payload: Record<string, unknown> = {
     mikan_url: systemForm.mikan_url,
     mikan_username: systemForm.mikan_username,
-    bangumi_moe_url: systemForm.bangumi_moe_url,
-    dmhy_url: systemForm.dmhy_url,
     proxy: systemForm.proxy,
     registration_mode: systemForm.registration_mode,
   }

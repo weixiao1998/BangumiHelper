@@ -11,8 +11,6 @@
       <el-form-item>
         <el-select v-model="dataSource" placeholder="数据源" style="width: 150px">
           <el-option label="蜜柑计划" value="mikan" />
-          <el-option label="bangumi.moe" value="bangumi_moe" />
-          <el-option label="动漫花园" value="dmhy" />
         </el-select>
       </el-form-item>
       <el-form-item>
