@@ -84,7 +84,8 @@ frontend/src/
 - **前端自动导入**: Element Plus 组件/图标无需手动 import
 - **Lint**: Ruff line-length=120, target=py314, 忽略 E501
 - **认证**: JWT, 首个注册用户自动成为管理员
-**配置分层**: 引导配置（SECRET_KEY/DB_* 等）在 `.env`，改后需 `up -d` 重建容器；运行时配置（MIKAN_URL/蜜柑账号/代理/注册模式 等）存 DB，由管理 UI「系统设置」维护，即时生效
+- **季度建模**: 番剧与季度（年份+春/夏/秋/冬）是多对多（半年番/年番跨多季），用 `bangumi_seasons` 关联表表达，不放 bangumi 列；季度值与蜜柑 `seasonStr` 参数一致
+- **配置分层**: 引导配置（SECRET_KEY/DB_* 等）在 `.env`，改后需 `up -d` 重建容器；运行时配置（MIKAN_URL/蜜柑账号/代理/注册模式 等）存 DB，由管理 UI「系统设置」维护，即时生效
 - **时间处理**: 后端统一使用 UTC 时间存储和传输，前端使用 `dayjs.utc().local()` 转为用户本地时间显示。时间工具函数位于 `app/core/utils.py`
 
 ## 详细文档索引

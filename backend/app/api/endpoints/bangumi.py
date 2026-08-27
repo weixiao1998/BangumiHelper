@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.api.endpoints.auth import get_current_active_user
 from app.core.database import async_session_maker, get_async_session
 from app.core.utils import utc_now
-from app.models.models import Bangumi, Episode, Subscription, User
+from app.models.models import Bangumi, BangumiSeason, Episode, Subscription, User
 from app.schemas import BangumiListResponse, BangumiResponse, CalendarResponse, MessageResponse, SearchResult
 from app.services.cover_cache import get_cover_response
 from app.services.data_sources import get_data_source
@@ -66,10 +66,25 @@ async def _background_refresh_episodes(bangumi_id: int, data_source: str) -> Non
 @router.get("/calendar", response_model=list[CalendarResponse])
 async def get_calendar(
     data_source: str = Query(default="mikan", description="数据源"),
+    year: int | None = Query(default=None, description="年份，如 2025；与 season 一起指定则只返回该季度番剧"),
+    season: str | None = Query(default=None, description="季度：春/夏/秋/冬"),
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_active_user),
 ):
-    result = await session.execute(select(Bangumi).where(Bangumi.data_source == data_source))
+    if year is not None and season is not None:
+        stmt = (
+            select(Bangumi)
+            .join(BangumiSeason, BangumiSeason.bangumi_id == Bangumi.id)
+            .where(
+                Bangumi.data_source == data_source,
+                BangumiSeason.year == year,
+                BangumiSeason.season == season,
+            )
+            .options(selectinload(Bangumi.seasons))
+        )
+    else:
+        stmt = select(Bangumi).where(Bangumi.data_source == data_source).options(selectinload(Bangumi.seasons))
+    result = await session.execute(stmt)
     db_bangumi_list = result.scalars().all()
 
     result = await session.execute(
@@ -93,6 +108,7 @@ async def get_calendar(
             subtitle_groups=bangumi.subtitle_groups,
             description=bangumi.description,
             is_subscribed=sub is not None,
+            seasons=[f"{s.year} {s.season}" for s in bangumi.seasons],
         )
 
         weekday = bangumi.update_time.lower()
@@ -131,6 +147,8 @@ async def search_bangumi(
 @router.post("/refresh", response_model=MessageResponse)
 async def refresh_bangumi_list(
     data_source: str = Query(default="mikan", description="数据源"),
+    year: int | None = Query(default=None, description="年份，如 2025；与 season 一起指定则按该季度刷新"),
+    season: str | None = Query(default=None, description="季度：春/夏/秋/冬"),
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -138,7 +156,7 @@ async def refresh_bangumi_list(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
 
     source = await get_data_source(data_source)
-    await source.fetch_and_save_bangumi(session)
+    await source.fetch_and_save_bangumi(session, year=year, season=season)
 
     return MessageResponse(message="番剧列表刷新成功")
 
@@ -152,7 +170,9 @@ async def get_bangumi_detail(
     current_user: User = Depends(get_current_active_user),
 ):
     result = await session.execute(
-        select(Bangumi).options(selectinload(Bangumi.episodes)).where(Bangumi.id == bangumi_id)
+        select(Bangumi)
+        .options(selectinload(Bangumi.episodes), selectinload(Bangumi.seasons))
+        .where(Bangumi.id == bangumi_id)
     )
     bangumi = result.scalar_one_or_none()
 

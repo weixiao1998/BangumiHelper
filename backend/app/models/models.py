@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -46,6 +46,7 @@ class Bangumi(Base):
 
     episodes: Mapped[list[Episode]] = relationship(back_populates="bangumi", cascade="all, delete-orphan")
     subscriptions: Mapped[list[Subscription]] = relationship(back_populates="bangumi", cascade="all, delete-orphan")
+    seasons: Mapped[list[BangumiSeason]] = relationship(back_populates="bangumi", cascade="all, delete-orphan")
 
 
 class Episode(Base):
@@ -63,6 +64,29 @@ class Episode(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     bangumi: Mapped[Bangumi] = relationship(back_populates="episodes")
+
+
+class BangumiSeason(Base):
+    """番剧与播出季度的多对多关联。
+
+    一部番剧可跨多个季度（如半年番关联 2 个季度、年番关联 4 个季度），
+    因此用关联表而非在 bangumi 上加 year/season 列。
+    season 取值：春/夏/秋/冬（与蜜柑 seasonStr 参数一致）。
+    """
+
+    __tablename__ = "bangumi_seasons"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    bangumi_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("bangumi.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    season: Mapped[str] = mapped_column(String(10), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+
+    __table_args__ = (UniqueConstraint("bangumi_id", "year", "season", name="uq_bangumi_season"),)
+
+    bangumi: Mapped[Bangumi] = relationship(back_populates="seasons")
 
 
 class Subscription(Base):

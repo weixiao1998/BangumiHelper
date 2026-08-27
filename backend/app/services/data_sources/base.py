@@ -26,6 +26,8 @@ class BangumiInfo:
     data_source: str = "unknown"
     subtitle_groups: str | None = None
     description: str | None = None
+    year: int | None = None
+    season: str | None = None
     episodes: list[EpisodeInfo] = None
 
     def __post_init__(self):
@@ -45,7 +47,7 @@ class BaseDataSource(ABC):
         self.proxy = cfg.proxy
 
     @abstractmethod
-    async def fetch_bangumi_calendar(self) -> list[BangumiInfo]:
+    async def fetch_bangumi_calendar(self, year: int | None = None, season: str | None = None) -> list[BangumiInfo]:
         pass
 
     @abstractmethod
@@ -60,16 +62,19 @@ class BaseDataSource(ABC):
     async def search_by_keyword(self, keyword: str, count: int = 3) -> list[EpisodeInfo]:
         pass
 
-    async def fetch_and_save_bangumi(self, session: AsyncSession) -> list[BangumiInfo]:
-        from app.models.models import Bangumi
+    async def fetch_and_save_bangumi(
+        self, session: AsyncSession, year: int | None = None, season: str | None = None
+    ) -> list[BangumiInfo]:
+        from sqlalchemy import select
 
-        bangumi_list = await self.fetch_bangumi_calendar()
+        from app.models.models import Bangumi, BangumiSeason
+
+        bangumi_list = await self.fetch_bangumi_calendar(year=year, season=season)
 
         for bangumi_info in bangumi_list:
-            existing = await session.execute(
-                Bangumi.__table__.select().where(Bangumi.keyword == bangumi_info.keyword)
-            )
-            if not existing.first():
+            existing = await session.execute(select(Bangumi).where(Bangumi.keyword == bangumi_info.keyword))
+            bangumi = existing.scalar_one_or_none()
+            if bangumi is None:
                 bangumi = Bangumi(
                     name=bangumi_info.name,
                     keyword=bangumi_info.keyword,
@@ -81,6 +86,28 @@ class BaseDataSource(ABC):
                     description=bangumi_info.description,
                 )
                 session.add(bangumi)
+                await session.flush()  # 取得 bangumi.id
+            else:
+                # 重新抓取时刷新已有番剧元信息：周几/类别可能已修正（如 OVA/剧场版），标题/封面也可能变化。
+                bangumi.update_time = bangumi_info.update_time
+                if bangumi_info.name:
+                    bangumi.name = bangumi_info.name
+                if bangumi_info.cover:
+                    bangumi.cover = bangumi_info.cover
+
+            # 记录番剧 ↔ 季度 的多对多关联（同季度已存在则不重复写入）
+            if bangumi_info.year is not None and bangumi_info.season is not None:
+                season_exists = await session.execute(
+                    select(BangumiSeason).where(
+                        BangumiSeason.bangumi_id == bangumi.id,
+                        BangumiSeason.year == bangumi_info.year,
+                        BangumiSeason.season == bangumi_info.season,
+                    )
+                )
+                if not season_exists.scalar_one_or_none():
+                    session.add(
+                        BangumiSeason(bangumi_id=bangumi.id, year=bangumi_info.year, season=bangumi_info.season)
+                    )
 
         await session.commit()
         return bangumi_list

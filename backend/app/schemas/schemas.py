@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, field_serializer
+from pydantic import BaseModel, EmailStr, field_serializer, field_validator
 
 
 def _cover_proxy_url(bangumi_id: int) -> str:
@@ -65,6 +65,19 @@ class EpisodeResponse(EpisodeBase):
         from_attributes = True
 
 
+def _coerce_seasons(value) -> list[str]:
+    """把 bangumi.seasons（SQLAlchemy BangumiSeason 对象列表）转成 "YYYY 季" 标签列表。"""
+    if not value:
+        return []
+    result = []
+    for s in value:
+        if hasattr(s, "year") and hasattr(s, "season"):
+            result.append(f"{s.year} {s.season}")
+        elif isinstance(s, str):
+            result.append(s)
+    return result
+
+
 class BangumiBase(BaseModel):
     name: str
     keyword: str
@@ -85,6 +98,12 @@ class BangumiResponse(BangumiBase):
     created_at: datetime
     updated_at: datetime
     episodes: list[EpisodeResponse] = []
+    seasons: list[str] = []
+
+    @field_validator("seasons", mode="before")
+    @classmethod
+    def _validate_seasons(cls, v):
+        return _coerce_seasons(v)
 
     @field_serializer("cover")
     def _serialize_cover(self, value: str | None) -> str | None:
@@ -97,6 +116,12 @@ class BangumiResponse(BangumiBase):
 class BangumiListResponse(BangumiBase):
     id: int
     is_subscribed: bool = False
+    seasons: list[str] = []
+
+    @field_validator("seasons", mode="before")
+    @classmethod
+    def _validate_seasons(cls, v):
+        return _coerce_seasons(v)
 
     @field_serializer("cover")
     def _serialize_cover(self, value: str | None) -> str | None:

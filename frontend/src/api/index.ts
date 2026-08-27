@@ -39,11 +39,13 @@ api.interceptors.response.use(
 )
 
 export const bangumiApi = {
-  getCalendar: (dataSource: string = 'mikan') => api.get('/bangumi/calendar', { params: { data_source: dataSource } }),
+  getCalendar: (dataSource: string = 'mikan', year?: number, season?: string) =>
+    api.get('/bangumi/calendar', { params: { data_source: dataSource, ...(year != null ? { year } : {}), ...(season ? { season } : {}) } }),
   getBangumi: (id: number) => api.get(`/bangumi/${id}`),
   getEpisodes: (id: number, maxPage: number = 3) => api.get(`/bangumi/${id}/episodes`, { params: { max_page: maxPage } }),
   search: (keyword: string, dataSource: string = 'mikan') => api.get('/bangumi/search', { params: { keyword, data_source: dataSource } }),
-  refresh: (dataSource: string = 'mikan') => api.post('/bangumi/refresh', null, { params: { data_source: dataSource } }),
+  refresh: (dataSource: string = 'mikan', year?: number, season?: string) =>
+    api.post('/bangumi/refresh', null, { params: { data_source: dataSource, ...(year != null ? { year } : {}), ...(season ? { season } : {}) } }),
   refreshEpisodes: (id: number, dataSource: string = 'mikan') => api.post(`/bangumi/${id}/refresh-episodes`, null, { params: { data_source: dataSource } }),
 }
 

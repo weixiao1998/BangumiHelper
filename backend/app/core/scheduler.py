@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.database import async_session_maker
-from app.core.utils import utc_now
+from app.core.utils import current_anime_season, utc_now
 from app.models.models import Bangumi, Episode
 from app.services.data_sources import get_available_data_sources, get_data_source
 
@@ -36,34 +36,14 @@ _EPISODE_STALE_DAYS = 15
 async def refresh_bangumi_calendar():
     logger.info(f"[Scheduler] Starting bangumi calendar refresh at {datetime.now()}")
 
+    # 当前正在播放的季度：自动刷新当前季并为番剧打上季度标签；历史季度由管理界面上手动刷新。
+    year, season = current_anime_season()
+
     for source_name in get_available_data_sources():
         try:
             source = await get_data_source(source_name)
             async with async_session_maker() as session:
-                bangumi_list = await source.fetch_bangumi_calendar()
-
-                from sqlalchemy import select
-
-                from app.models.models import Bangumi
-
-                for info in bangumi_list:
-                    existing = await session.execute(
-                        select(Bangumi).where(Bangumi.keyword == info.keyword)
-                    )
-                    if not existing.scalar_one_or_none():
-                        bangumi = Bangumi(
-                            name=info.name,
-                            keyword=info.keyword,
-                            cover=info.cover,
-                            update_time=info.update_time,
-                            status=info.status,
-                            data_source=info.data_source,
-                            subtitle_groups=info.subtitle_groups,
-                            description=info.description,
-                        )
-                        session.add(bangumi)
-
-                await session.commit()
+                bangumi_list = await source.fetch_and_save_bangumi(session, year=year, season=season)
                 logger.info(f"[Scheduler] Refreshed {len(bangumi_list)} bangumi from {source_name}")
 
             await source.close()

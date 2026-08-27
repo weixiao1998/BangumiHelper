@@ -16,7 +16,8 @@ CN_WEEK_MAP = {
     "星期四": "Thu",
     "星期五": "Fri",
     "星期六": "Sat",
-    "OVA": "Unknown",
+    "剧场版": "Movie",
+    "OVA": "OVA",
 }
 
 DAY_OF_WEEK_MAP = {
@@ -27,6 +28,7 @@ DAY_OF_WEEK_MAP = {
     4: "星期四",
     5: "星期五",
     6: "星期六",
+    7: "剧场版",
     8: "OVA",
 }
 
@@ -105,16 +107,21 @@ class MikanDataSource(BaseDataSource):
                     text = await resp.text()
             return text
 
-    async def fetch_bangumi_calendar(self) -> list[BangumiInfo]:
-        html = await self._get_page(self.base_url)
+    async def fetch_bangumi_calendar(self, year: int | None = None, season: str | None = None) -> list[BangumiInfo]:
+        # 指定年份+季度时，请求蜜柑的「按星期排版的季节目录」接口；否则抓默认（当前季）首页。
+        if year is not None and season is not None:
+            url = f"{self.base_url}/Home/BangumiCoverFlowByDayOfWeek"
+            params = {"year": year, "seasonStr": season}
+        else:
+            url = self.base_url
+            params = None
+
+        html = await self._get_page(url, params)
         soup = BeautifulSoup(html, "lxml")
 
         bangumi_list = []
 
         for day_num in range(0, 9):
-            if day_num == 7:
-                continue
-
             day_container = soup.find("div", attrs={"class": "sk-bangumi", "data-dayofweek": str(day_num)})
             if not day_container:
                 continue
@@ -139,6 +146,8 @@ class MikanDataSource(BaseDataSource):
                                 cover=cover.split("?")[0],
                                 update_time=weekday,
                                 data_source="mikan",
+                                year=year,
+                                season=season,
                             )
                         )
 

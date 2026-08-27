@@ -22,6 +22,7 @@
               <p class="meta">
                 <el-tag>更新: {{ bangumi.update_time }}</el-tag>
                 <el-tag type="info">{{ bangumi.data_source }}</el-tag>
+                <el-tag v-if="bangumi.seasons && bangumi.seasons.length" type="info">{{ formatSeasons(bangumi.seasons) }}</el-tag>
                 <el-tag v-if="subscriptionFilter" type="warning">已过滤</el-tag>
               </p>
             </div>
@@ -261,6 +262,7 @@ interface Bangumi {
   data_source: string
   description: string
   subtitle_groups?: string | null
+  seasons: string[]
   episodes: Episode[]
 }
 
@@ -342,6 +344,26 @@ function checkAllOverflow() {
 function formatTime(time: string | null | undefined): string {
   if (!time) return '-'
   return dayjs.utc(time).local().format('YYYY-MM-DD HH:mm')
+}
+
+// 把多个季度合并成一个紧凑标签（如 "2026 春·夏"），供详情页与卡片复用。
+const seasonOrder = ['春', '夏', '秋', '冬']
+function formatSeasons(seasons: string[]): string {
+  const byYear: Record<number, string[]> = {}
+  for (const s of seasons) {
+    const m = s.match(/^(\d{4})\s+(春|夏|秋|冬)$/)
+    if (!m) continue
+    const y = Number(m[1])
+    const q = m[2]
+    ;(byYear[y] ||= []).push(q)
+  }
+  return Object.keys(byYear)
+    .sort((a, b) => Number(a) - Number(b))
+    .map((y) => {
+      const qs = byYear[Number(y)].sort((a, b) => seasonOrder.indexOf(a) - seasonOrder.indexOf(b))
+      return `${y} ${qs.join('·')}`
+    })
+    .join(' / ')
 }
 
 interface SubtitleGroup {
