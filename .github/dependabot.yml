@@ -1,0 +1,30 @@
+version: 2
+updates:
+  # 前端：npm（实际用 pnpm，Dependabot 按 npm 生态解析 package.json + pnpm-lock.yaml）
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    groups:
+      # small/补丁版本合并成一个 PR，减少推送噪音
+      npm-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+
+  # 后端：uv（pyproject.toml + uv.lock）
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    groups:
+      python-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
