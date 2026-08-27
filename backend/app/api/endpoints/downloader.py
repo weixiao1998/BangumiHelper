@@ -40,7 +40,7 @@ async def create_downloader(
     if downloader_create.is_default:
         existing_default = (await session.execute(
             select(DownloaderConfig)
-            .where(DownloaderConfig.user_id == current_user.id, DownloaderConfig.is_default == True)
+            .where(DownloaderConfig.user_id == current_user.id, DownloaderConfig.is_default)
         )).scalars().all()
 
         for d in existing_default:
@@ -164,7 +164,7 @@ async def download_episodes(
     else:
         result = await session.execute(
             select(DownloaderConfig).where(
-                DownloaderConfig.user_id == current_user.id, DownloaderConfig.is_default == True
+                DownloaderConfig.user_id == current_user.id, DownloaderConfig.is_default
             )
         )
         downloader_config = result.scalar_one_or_none()
