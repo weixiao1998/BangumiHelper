@@ -327,7 +327,7 @@ watch(showSubscribeDialog, (val) => {
 const overflowStates = ref<Record<number, boolean>>({})
 const titleElements = ref<Map<number, HTMLElement>>(new Map())
 
-function registerTitleRef(el: any, episodeId: number) {
+function registerTitleRef(el: unknown, episodeId: number) {
   if (el && el instanceof HTMLElement) {
     titleElements.value.set(episodeId, el)
   }
@@ -489,7 +489,9 @@ async function fetchBangumi() {
     episodes.value = response.data.episodes || []
 
     const subResponse = await subscriptionApi.getAll()
-    const sub = subResponse.data.find((s: any) => s.bangumi.id === bangumiId.value)
+    const sub = subResponse.data.find(
+      (s: { id: number; bangumi: { id: number }; filter?: BangumiFilter | null }) => s.bangumi.id === bangumiId.value
+    )
     if (sub) {
       isSubscribed.value = true
       subscriptionId.value = sub.id

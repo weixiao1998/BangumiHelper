@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     EPISODE_REFRESH_INTERVAL: int = 1
 
     @property
-    def DATABASE_URL(self) -> str:
+    def DATABASE_URL(self) -> str:  # noqa: N802 - 有意用 PascalCase 与 DATABASE_URL 配置命名对齐
         """按 DB_TYPE 拼接数据库连接串；用户名/密码做 URL 编码以兼容特殊字符。"""
         user = quote_plus(self.DB_USER)
         password = quote_plus(self.DB_PASSWORD)
