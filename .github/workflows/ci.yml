@@ -66,3 +66,6 @@ jobs:
 
       - name: 构建（含 vue-tsc 类型检查）
         run: pnpm build
+
+      - name: Lint (eslint)
+        run: pnpm exec eslint .
