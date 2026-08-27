@@ -1,17 +1,66 @@
+from datetime import UTC
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.endpoints.auth import get_current_active_user
-from app.core.database import get_async_session
+from app.core.database import async_session_maker, get_async_session
+from app.core.utils import utc_now
 from app.models.models import Bangumi, Episode, Subscription, User
 from app.schemas import BangumiListResponse, BangumiResponse, CalendarResponse, MessageResponse, SearchResult
 from app.services.cover_cache import get_cover_response
 from app.services.data_sources import get_data_source
 
 router = APIRouter()
+
+# 详情页剧集异步刷新的最小间隔（秒）：进入详情页时距上次剧集检查不足该时间则不重复拉取。
+_DETAIL_EPISODE_REFRESH_INTERVAL = 10 * 60  # 10 分钟
+
+
+async def _background_refresh_episodes(bangumi_id: int, data_source: str) -> None:
+    """详情页触发的后台剧集刷新：拉取新剧集入库，不阻塞请求响应。"""
+    try:
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(Bangumi).options(selectinload(Bangumi.episodes)).where(Bangumi.id == bangumi_id)
+            )
+            bangumi = result.scalar_one_or_none()
+            if not bangumi:
+                return
+
+            source = await get_data_source(data_source)
+            try:
+                episode_infos = await source.fetch_episode_of_bangumi(bangumi.keyword, max_page=2)
+                existing = {ep.title: ep for ep in bangumi.episodes}
+                for info in episode_infos:
+                    if info.title in existing:
+                        ep = existing[info.title]
+                        if not ep.torrent_url and info.torrent_url:
+                            ep.torrent_url = info.torrent_url
+                        if not ep.magnet_url and info.magnet_url:
+                            ep.magnet_url = info.magnet_url
+                    else:
+                        session.add(
+                            Episode(
+                                bangumi_id=bangumi.id,
+                                title=info.title,
+                                episode_number=info.episode_number,
+                                torrent_url=info.torrent_url,
+                                magnet_url=info.magnet_url,
+                                file_size=info.file_size,
+                                subtitle_group=info.subtitle_group,
+                                publish_time=info.publish_time,
+                            )
+                        )
+                bangumi.last_episode_check_at = utc_now()
+                await session.commit()
+            finally:
+                await source.close()
+    except Exception:
+        logger.exception(f"[BangumiDetail] Background episode refresh failed for bangumi {bangumi_id}")
 
 
 @router.get("/calendar", response_model=list[CalendarResponse])
@@ -97,6 +146,7 @@ async def refresh_bangumi_list(
 @router.get("/{bangumi_id}", response_model=BangumiResponse)
 async def get_bangumi_detail(
     bangumi_id: int,
+    background_tasks: BackgroundTasks,
     data_source: str = Query(default="mikan", description="数据源"),
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_active_user),
@@ -111,7 +161,14 @@ async def get_bangumi_detail(
 
     source = await get_data_source(data_source)
 
+    # 判断是否需要拉取新剧集：距上次剧集检查 ≥ 10 分钟才拉，避免每次都拉
+    last_check = bangumi.last_episode_check_at
+    if last_check is not None and last_check.tzinfo is None:
+        last_check = last_check.replace(tzinfo=UTC)
+    needs_refresh = last_check is None or (utc_now() - last_check).total_seconds() >= _DETAIL_EPISODE_REFRESH_INTERVAL
+
     if not bangumi.episodes:
+        # 首次（无剧集记录）：同步拉一次，保证详情页有数据；并记录检查时间
         episode_infos = await source.fetch_episode_of_bangumi(bangumi.keyword, max_page=1)
 
         for info in episode_infos:
@@ -127,8 +184,12 @@ async def get_bangumi_detail(
             )
             session.add(episode)
 
+        bangumi.last_episode_check_at = utc_now()
         await session.commit()
         await session.refresh(bangumi, ["episodes"])
+    elif needs_refresh:
+        # 已有剧集且距上次检查 ≥ 10 分钟：后台异步刷新，不阻塞响应
+        background_tasks.add_task(_background_refresh_episodes, bangumi.id, data_source)
 
     if not bangumi.subtitle_groups:
         bangumi_info = await source.fetch_single_bangumi(bangumi.keyword)
