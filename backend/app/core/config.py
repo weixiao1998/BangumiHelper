@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     DATA_DIR: str = "./data"
 
     CALENDAR_REFRESH_INTERVAL: int = 1
+    EPISODE_REFRESH_INTERVAL: int = 1
 
     @property
     def DATABASE_URL(self) -> str:

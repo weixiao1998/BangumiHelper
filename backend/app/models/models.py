@@ -38,6 +38,9 @@ class Bangumi(Base):
     data_source: Mapped[str] = mapped_column(String(50), default="mikan")
     subtitle_groups: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 剧集定时刷新（自适应退避）状态
+    last_episode_check_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    episode_check_interval: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 秒
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
