@@ -8,6 +8,7 @@ from app.api.endpoints.auth import get_current_active_user
 from app.core.database import get_async_session
 from app.models.models import Bangumi, Episode, Subscription, User
 from app.schemas import BangumiListResponse, BangumiResponse, CalendarResponse, MessageResponse, SearchResult
+from app.services.cover_cache import get_cover_response
 from app.services.data_sources import get_data_source
 
 router = APIRouter()
@@ -87,7 +88,7 @@ async def refresh_bangumi_list(
     if not current_user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
 
-    source = get_data_source(data_source)
+    source = await get_data_source(data_source)
     await source.fetch_and_save_bangumi(session)
 
     return MessageResponse(message="番剧列表刷新成功")
@@ -139,6 +140,22 @@ async def get_bangumi_detail(
     return bangumi
 
 
+@router.get("/{bangumi_id}/cover")
+async def get_bangumi_cover(
+    bangumi_id: int,
+    session: AsyncSession = Depends(get_async_session),
+):
+    # 封面代理：首次从外部源下载并缓存到本地，之后由后端直接提供，
+    # 避免图片重复加载。该接口免认证，因为 <img> 标签无法携带 JWT header。
+    result = await session.execute(select(Bangumi).where(Bangumi.id == bangumi_id))
+    bangumi = result.scalar_one_or_none()
+
+    if not bangumi or not bangumi.cover:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="封面不存在")
+
+    return await get_cover_response(bangumi.cover)
+
+
 @router.post("/{bangumi_id}/refresh-episodes", response_model=MessageResponse)
 async def refresh_bangumi_episodes(
     bangumi_id: int,
@@ -154,7 +171,7 @@ async def refresh_bangumi_episodes(
     if not bangumi:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="番剧不存在")
 
-    source = get_data_source(data_source)
+    source = await get_data_source(data_source)
     episode_infos = await source.fetch_episode_of_bangumi(bangumi.keyword, max_page=3)
 
     existing_episodes = {ep.title: ep for ep in bangumi.episodes}

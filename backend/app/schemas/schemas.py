@@ -1,6 +1,15 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_serializer
+
+
+def _cover_proxy_url(bangumi_id: int) -> str:
+    """返回封面代理地址：由后端下载并缓存封面图片。
+
+    数据库仍保存外部源封面 URL 供缓存下载，响应里统一暴露代理地址，
+    避免前端每次从外部源重新加载。
+    """
+    return f"/api/bangumi/{bangumi_id}/cover"
 
 
 class UserBase(BaseModel):
@@ -77,6 +86,10 @@ class BangumiResponse(BangumiBase):
     updated_at: datetime
     episodes: list[EpisodeResponse] = []
 
+    @field_serializer("cover")
+    def _serialize_cover(self, value: str | None) -> str | None:
+        return _cover_proxy_url(self.id) if value else None
+
     class Config:
         from_attributes = True
 
@@ -84,6 +97,10 @@ class BangumiResponse(BangumiBase):
 class BangumiListResponse(BangumiBase):
     id: int
     is_subscribed: bool = False
+
+    @field_serializer("cover")
+    def _serialize_cover(self, value: str | None) -> str | None:
+        return _cover_proxy_url(self.id) if value else None
 
     class Config:
         from_attributes = True

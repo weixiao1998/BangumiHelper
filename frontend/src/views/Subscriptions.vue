@@ -11,10 +11,14 @@
     </el-empty>
 
     <template v-else>
-      <el-row :gutter="20">
-        <el-col v-for="sub in subscriptions" :key="sub.id" :span="6">
+      <el-row :gutter="12">
+        <el-col v-for="sub in subscriptions" :key="sub.id" :xs="12" :sm="8" :md="6" :lg="4" :xl="3">
           <el-card class="subscription-card" @click="router.push(`/bangumi/${sub.bangumi.id}`)">
-            <el-image :src="sub.bangumi.cover || '/placeholder.png'" fit="cover" class="cover" />
+            <el-image :src="sub.bangumi.cover || '/placeholder.png'" fit="cover" class="cover">
+              <template #error>
+                <img :src="'/placeholder.png'" alt="" class="cover" />
+              </template>
+            </el-image>
             <div class="info">
               <h4>{{ sub.bangumi.name }}</h4>
               <el-tag v-if="sub.filter" size="small" type="warning" style="margin-bottom: 8px;">已过滤</el-tag>

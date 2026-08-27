@@ -10,7 +10,11 @@
 
     <template v-else-if="bangumi">
       <div class="detail-layout">
-        <el-image :src="bangumi.cover || '/placeholder.png'" fit="cover" class="cover-image" />
+        <el-image :src="bangumi.cover || '/placeholder.png'" fit="cover" class="cover-image">
+          <template #error>
+            <img :src="'/placeholder.png'" alt="" class="cover-image" />
+          </template>
+        </el-image>
         <div class="detail-content">
           <div class="detail-header">
             <div class="detail-header-left">
@@ -490,7 +494,7 @@ async function fetchDownloaders() {
 async function handleSubscribe() {
   subscribing.value = true
   try {
-    const payload: Record<string, unknown> = {
+    const payload: { bangumi_id: number } & Record<string, unknown> = {
       bangumi_id: bangumiId.value,
       auto_download: subscribeForm.value.auto_download,
     }

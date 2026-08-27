@@ -40,6 +40,7 @@ services:
         condition: service_healthy
     volumes:
       - ./.env:/app/.env:ro
+      - backend-data:/app/data
     networks:
       - bangumi-network
     logging: *logging
@@ -62,6 +63,7 @@ services:
 volumes:
   mysql-data:
   caddy-data:
+  backend-data:
 
 networks:
   bangumi-network:

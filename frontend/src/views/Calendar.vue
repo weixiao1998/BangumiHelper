@@ -26,7 +26,7 @@
             class="bangumi-card"
             @click="router.push(`/bangumi/${bangumi.id}`)"
           >
-            <img :src="bangumi.cover || '/placeholder.png'" :alt="bangumi.name" class="cover" />
+            <img :src="bangumi.cover || '/placeholder.png'" :alt="bangumi.name" class="cover" @error="onImgError" />
             <div class="info">
               <div class="name" :title="bangumi.name">{{ bangumi.name }}</div>
               <div class="meta">
@@ -77,6 +77,12 @@ const weekdayNames: Record<string, string> = {
   fri: '星期五',
   sat: '星期六',
   unknown: '未知',
+}
+
+function onImgError(e: Event) {
+  const img = e.target as HTMLImageElement
+  if (img.src.includes('/placeholder.png')) return
+  img.src = '/placeholder.png'
 }
 
 async function fetchCalendar() {
