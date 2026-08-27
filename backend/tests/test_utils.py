@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.core.utils import beijing_to_utc, current_anime_season
 
@@ -13,7 +13,7 @@ def test_beijing_to_utc_naive_treated_as_beijing():
 
 
 def test_beijing_to_utc_aware_passthrough():
-    utc = beijing_to_utc(datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
+    utc = beijing_to_utc(datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC))
     assert utc.hour == 0  # 自带 UTC 时区则直接转
 
 
