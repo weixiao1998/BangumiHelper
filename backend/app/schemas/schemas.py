@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, field_serializer, field_validator
 
@@ -133,12 +134,11 @@ class BangumiListResponse(BangumiBase):
 
 class SubscriptionBase(BaseModel):
     bangumi_id: int
-    auto_download: bool = False
-    downloader_id: int | None = None
-    save_path: str | None = None
 
 
 class SubscriptionCreate(SubscriptionBase):
+    # 不传时按是否提供了过滤条件推断：有过滤条件=自定义，无=继承全局默认规则
+    filter_mode: Literal["inherit", "custom"] | None = None
     include_keywords: str | None = None
     exclude_keywords: str | None = None
     subtitle_groups: str | None = None
@@ -149,17 +149,17 @@ class SubscriptionCreate(SubscriptionBase):
 
 
 class SubscriptionUpdate(BaseModel):
+    # 1=启用，0=暂停（暂停的订阅不输出到 RSS）
     status: int | None = None
-    current_episode: int | None = None
-    auto_download: bool | None = None
-    downloader_id: int | None = None
-    save_path: str | None = None
+    # 过滤规则来源：inherit=全局默认规则，custom=订阅自身规则（互斥，不叠加）
+    filter_mode: Literal["inherit", "custom"] | None = None
 
 
 class SubscriptionResponse(SubscriptionBase):
     id: int
     user_id: int
     status: int
+    filter_mode: str
     rss_token: str | None = None
     created_at: datetime
     updated_at: datetime
@@ -168,6 +168,19 @@ class SubscriptionResponse(SubscriptionBase):
 
     class Config:
         from_attributes = True
+
+
+class SubscriptionFilteringResponse(BaseModel):
+    """某订阅当前生效的过滤情况，供详情页直接渲染（避免前端重复实现过滤逻辑）。"""
+
+    filter_mode: str
+    # global / custom / none
+    active_source: str
+    # 用户是否已设置全局默认规则（前端用于解释「继承」的实际效果）
+    global_filter_available: bool = False
+    # 生效规则允许的字幕组（原始逗号分隔串），用于侧栏「已订阅」标记
+    active_subtitle_groups: str | None = None
+    matched_episode_ids: list[int] = []
 
 
 class BangumiFilterBase(BaseModel):
@@ -210,6 +223,7 @@ class GlobalFilterBase(BaseModel):
     include_keywords: str | None = None
     exclude_keywords: str | None = None
     subtitle_groups: str | None = None
+    language: str | None = None
     regex_pattern: str | None = None
     min_episode: int | None = None
     max_episode: int | None = None
@@ -223,6 +237,7 @@ class GlobalFilterUpdate(BaseModel):
     include_keywords: str | None = None
     exclude_keywords: str | None = None
     subtitle_groups: str | None = None
+    language: str | None = None
     regex_pattern: str | None = None
     min_episode: int | None = None
     max_episode: int | None = None
@@ -236,56 +251,6 @@ class GlobalFilterResponse(GlobalFilterBase):
 
     class Config:
         from_attributes = True
-
-
-class DownloaderConfigBase(BaseModel):
-    name: str
-    downloader_type: str
-    host: str
-    port: int
-    username: str | None = None
-    password: str | None = None
-    rpc_url: str | None = None
-    token: str | None = None
-    is_default: bool = False
-
-
-class DownloaderConfigCreate(DownloaderConfigBase):
-    pass
-
-
-class DownloaderConfigUpdate(BaseModel):
-    name: str | None = None
-    downloader_type: str | None = None
-    host: str | None = None
-    port: int | None = None
-    username: str | None = None
-    password: str | None = None
-    rpc_url: str | None = None
-    token: str | None = None
-    is_default: bool | None = None
-
-
-class DownloaderConfigResponse(DownloaderConfigBase):
-    id: int
-    user_id: int
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class DownloadRequest(BaseModel):
-    episode_ids: list[int]
-    downloader_id: int | None = None
-    download_type: str | None = "magnet"
-
-
-class DownloadResponse(BaseModel):
-    success: bool
-    message: str
-    download_url: str | None = None
 
 
 class CalendarResponse(BaseModel):

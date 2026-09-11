@@ -19,10 +19,6 @@
           <el-icon><Search /></el-icon>
           <span>搜索</span>
         </el-menu-item>
-        <el-menu-item index="/downloaders">
-          <el-icon><Download /></el-icon>
-          <span>下载器</span>
-        </el-menu-item>
       </el-menu>
 
       <div class="user-area">

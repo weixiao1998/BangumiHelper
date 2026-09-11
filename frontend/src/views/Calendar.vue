@@ -22,7 +22,10 @@
 
     <template v-else>
       <div v-for="day in calendarData" :key="day.weekday" class="weekday-section">
-        <h3 class="weekday-title">{{ weekdayNames[day.weekday] || day.weekday }}</h3>
+        <h3 class="weekday-title">
+          {{ weekdayNames[day.weekday] || day.weekday }}
+          <el-tag v-if="isToday(day.weekday)" size="small" effect="plain">今天</el-tag>
+        </h3>
         <div class="card-grid">
           <el-card
             v-for="bangumi in day.bangumi_list"
@@ -134,6 +137,41 @@ const weekdayNames: Record<string, string> = {
   unknown: '未知',
 }
 
+// 以周一为一周基准顺序，便于按「今天」轮转
+const weekdayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+// 非星期分组（剧场版/OVA/未知）统一排在星期分组之后
+const specialDayOrder = ['movie', 'ova', 'unknown']
+
+function todayWeekdayKey(): string {
+  // getDay(): 0=周日 … 6=周六，与后端 update_time 的小写取值一致
+  return ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][new Date().getDay()]
+}
+
+function isToday(weekday: string): boolean {
+  return (weekday || '').toLowerCase() === todayWeekdayKey()
+}
+
+// 以「今天」为起点重排：今天在最前，其后按星期顺序轮转（今天之后的本周日期在前），
+// 非星期分组固定放在最后，避免周日总是排在第一屏。
+function sortFromToday(days: CalendarDay[]): CalendarDay[] {
+  const startIndex = weekdayOrder.indexOf(todayWeekdayKey())
+  const rankOf = (weekday: string): [number, number] => {
+    const key = (weekday || '').toLowerCase()
+    const index = weekdayOrder.indexOf(key)
+    if (index !== -1) {
+      return [0, (index - startIndex + weekdayOrder.length) % weekdayOrder.length]
+    }
+    const specialIndex = specialDayOrder.indexOf(key)
+    return [1, specialIndex === -1 ? specialDayOrder.length : specialIndex]
+  }
+
+  return [...days].sort((a, b) => {
+    const [groupA, rankA] = rankOf(a.weekday)
+    const [groupB, rankB] = rankOf(b.weekday)
+    return groupA - groupB || rankA - rankB
+  })
+}
+
 function onImgError(e: Event) {
   const img = e.target as HTMLImageElement
   if (img.src.includes('/placeholder.png')) return
@@ -144,7 +182,7 @@ async function fetchCalendar() {
   loading.value = true
   try {
     const response = await bangumiApi.getCalendar(dataSource.value, year.value, season.value)
-    calendarData.value = response.data
+    calendarData.value = sortFromToday(response.data)
   } catch {
     // Error handled by interceptor
   } finally {

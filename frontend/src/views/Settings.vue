@@ -79,6 +79,20 @@
               />
             </el-form-item>
 
+            <el-form-item label="语言">
+              <el-select
+                v-model="globalFilterForm.language"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                placeholder="选择或输入语言"
+                style="width: 100%"
+              >
+                <el-option v-for="lang in languageOptions" :key="lang" :label="lang" :value="lang" />
+              </el-select>
+            </el-form-item>
+
             <el-form-item label="集数范围">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <el-input-number v-model="globalFilterForm.min_episode" :min="0" :max="9999" placeholder="最小" controls-position="right" />
@@ -113,7 +127,8 @@
             :closable="false"
             style="margin-top: 16px"
           >
-            此过滤器将应用于您的所有订阅。您可以为单个订阅设置额外的过滤器，两者将同时生效。
+            这是您的<b>默认过滤规则</b>：订阅在「继承全局」模式下使用它；
+            对订阅设置「自定义规则」后，该订阅改用自身规则，此规则<b>不再参与</b>判定。
           </el-alert>
           <el-alert
             v-else
@@ -122,7 +137,8 @@
             :closable="false"
             style="margin-top: 16px"
           >
-            设置全局过滤器后，它将自动应用于您的所有订阅的 RSS 输出和剧集列表。
+            设置后作为所有「继承全局」订阅的默认过滤规则；也可以为单个订阅设置自定义规则
+            （两者互斥、不叠加）。未设置且订阅为继承模式时，等于不按条件过滤。
           </el-alert>
         </el-card>
       </el-tab-pane>
@@ -168,9 +184,6 @@
               <el-button type="primary" :loading="systemLoading" @click="handleUpdateSystem">保存配置</el-button>
             </el-form-item>
           </el-form>
-          <el-alert type="info" :closable="false" style="margin-top: 16px">
-            这些配置保存在数据库中，修改后即时生效，无需重启容器。
-          </el-alert>
         </el-card>
       </el-tab-pane>
 
@@ -192,6 +205,10 @@
           <p v-else style="color: #909399; font-size: 12px; margin-bottom: 16px;">
             如果链接泄露，可以点击"重新生成"按钮获取新链接
           </p>
+          <p style="color: #909399; font-size: 12px; margin-bottom: 16px;">
+            该链接包含你全部订阅中「启用」的番剧更新；已暂停的订阅不会出现在其中。
+            feed 默认只输出最近 60 天或 100 条（取先到者）。
+          </p>
           <el-button v-if="!userRssToken" type="primary" :loading="rssTokenLoading" @click="handleGenerateUserRssToken">生成 RSS 链接</el-button>
           <template v-else>
             <el-button @click="handleRegenerateUserRssToken" :loading="rssTokenLoading">重新生成</el-button>
@@ -208,11 +225,13 @@ import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { userApi, bangumiApi, settingsApi } from '@/api'
+import { LANGUAGE_OPTION_VALUES } from '@/constants'
 
 interface GlobalFilterData {
   include_keywords: string | null
   exclude_keywords: string | null
   subtitle_groups: string | null
+  language: string | null
   regex_pattern: string | null
   min_episode: number | null
   max_episode: number | null
@@ -249,10 +268,13 @@ const globalFilterForm = reactive({
   include_keywords: [] as string[],
   exclude_keywords: [] as string[],
   subtitle_groups: [] as string[],
+  language: [] as string[],
   regex_pattern: '',
   min_episode: undefined as number | undefined,
   max_episode: undefined as number | undefined,
 })
+
+const languageOptions = LANGUAGE_OPTION_VALUES
 
 const validateConfirmPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (value !== passwordForm.newPassword) {
@@ -285,6 +307,7 @@ function buildFilterPayload(): Record<string, unknown> {
     include_keywords: globalFilterForm.include_keywords.join(',') || null,
     exclude_keywords: globalFilterForm.exclude_keywords.join(',') || null,
     subtitle_groups: globalFilterForm.subtitle_groups.join(',') || null,
+    language: globalFilterForm.language.join(',') || null,
     regex_pattern: globalFilterForm.regex_pattern || null,
     min_episode: globalFilterForm.min_episode ?? null,
     max_episode: globalFilterForm.max_episode ?? null,
@@ -295,6 +318,7 @@ function loadFilterForm(filter: GlobalFilterData) {
   globalFilterForm.include_keywords = parseCommaList(filter.include_keywords)
   globalFilterForm.exclude_keywords = parseCommaList(filter.exclude_keywords)
   globalFilterForm.subtitle_groups = parseCommaList(filter.subtitle_groups)
+  globalFilterForm.language = parseCommaList(filter.language)
   globalFilterForm.regex_pattern = filter.regex_pattern || ''
   globalFilterForm.min_episode = filter.min_episode ?? undefined
   globalFilterForm.max_episode = filter.max_episode ?? undefined
@@ -308,6 +332,7 @@ async function fetchGlobalFilter() {
     globalFilterForm.include_keywords = []
     globalFilterForm.exclude_keywords = []
     globalFilterForm.subtitle_groups = []
+    globalFilterForm.language = []
     globalFilterForm.regex_pattern = ''
     globalFilterForm.min_episode = undefined
     globalFilterForm.max_episode = undefined
@@ -377,6 +402,7 @@ async function handleDeleteGlobalFilter() {
     globalFilterForm.include_keywords = []
     globalFilterForm.exclude_keywords = []
     globalFilterForm.subtitle_groups = []
+    globalFilterForm.language = []
     globalFilterForm.regex_pattern = ''
     globalFilterForm.min_episode = undefined
     globalFilterForm.max_episode = undefined

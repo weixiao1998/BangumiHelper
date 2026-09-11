@@ -23,16 +23,18 @@
                 <el-tag>更新: {{ bangumi.update_time }}</el-tag>
                 <el-tag type="info">{{ bangumi.data_source }}</el-tag>
                 <el-tag v-if="bangumi.seasons && bangumi.seasons.length" type="info">{{ formatSeasons(bangumi.seasons) }}</el-tag>
-                <el-tag v-if="subscriptionFilter" type="warning">已过滤</el-tag>
+                <el-tag v-if="activeSource !== 'none'" type="warning">
+                  {{ activeSource === 'global' ? '全局过滤' : '自定义过滤' }}
+                </el-tag>
               </p>
             </div>
             <div class="detail-header-actions">
               <template v-if="!isSubscribed">
-                <el-button type="primary" @click="showSubscribeDialog = true">订阅</el-button>
+                <el-button type="primary" @click="showSettingsDialog = true">订阅</el-button>
               </template>
               <template v-else>
                 <el-button type="danger" @click="handleUnsubscribe">取消订阅</el-button>
-                <el-button @click="showFilterDialog = true">过滤器</el-button>
+                <el-button @click="showSettingsDialog = true">订阅设置</el-button>
               </template>
               <el-button plain :loading="refreshing" @click="handleRefreshEpisodes">
                 刷新剧集
@@ -69,7 +71,7 @@
                   v-for="ep in filteredEpisodes"
                   :key="ep.id"
                   class="episode-card"
-                  :class="{ 'filtered-out': subscriptionFilter && !matchEpisode(ep) }"
+                  :class="{ 'filtered-out': activeSource !== 'none' && !matchedEpisodeIds.has(ep.id) }"
                 >
                   <div class="episode-card-body">
                     <span class="episode-badge">第 {{ ep.episode_number }} 集</span>
@@ -88,17 +90,17 @@
                       v-if="ep.magnet_url"
                       size="small"
                       type="primary"
-                      @click="handleDownload(ep, 'magnet')"
+                      @click="copyMagnet(ep)"
                     >
-                      磁力
+                      复制磁力
                     </el-button>
                     <el-button
                       v-if="ep.torrent_url"
                       size="small"
                       type="success"
-                      @click="handleDownload(ep, 'torrent')"
+                      @click="openTorrent(ep)"
                     >
-                      种子
+                      下载种子
                     </el-button>
                     <el-button
                       v-if="!ep.magnet_url && !ep.torrent_url"
@@ -119,105 +121,18 @@
       </div>
     </template>
 
-    <el-dialog v-model="showSubscribeDialog" title="订阅设置" width="560px">
-      <el-form :model="subscribeForm" label-width="100px">
-        <el-form-item label="自动下载">
-          <el-switch v-model="subscribeForm.auto_download" />
-        </el-form-item>
-        <template v-if="subscribeForm.auto_download">
-          <el-form-item label="下载器">
-            <el-select v-model="subscribeForm.downloader_id" placeholder="选择下载器" style="width: 100%">
-              <el-option v-for="d in downloaders" :key="d.id" :label="d.name" :value="d.id" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="保存路径">
-            <el-input v-model="subscribeForm.save_path" placeholder="可选" />
-          </el-form-item>
-        </template>
-
-        <el-divider content-position="left">过滤条件</el-divider>
-
-        <el-form-item label="语言">
-          <el-select
-            v-model="subscribeForm.language"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            placeholder="选择或输入语言"
-            style="width: 100%"
-          >
-            <el-option v-for="lang in languageOptions" :key="lang" :label="lang" :value="lang" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="包含关键词">
-          <el-select
-            v-model="subscribeForm.include_keywords"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            placeholder="输入关键词后回车添加"
-            popper-class="hide-select-dropdown"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="排除关键词">
-          <el-select
-            v-model="subscribeForm.exclude_keywords"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            placeholder="输入关键词后回车添加"
-            popper-class="hide-select-dropdown"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="字幕组">
-          <el-select
-            v-model="subscribeForm.subtitle_groups"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            :placeholder="subtitleGroupOptions.length ? '选择或输入字幕组' : '输入字幕组名称后回车添加'"
-            style="width: 100%"
-          >
-            <el-option v-for="sg in subtitleGroupOptions" :key="sg" :label="sg" :value="sg" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button link type="primary" @click="showSubscribeAdvanced = !showSubscribeAdvanced">
-            {{ showSubscribeAdvanced ? '收起高级选项' : '展开高级选项' }}
-          </el-button>
-        </el-form-item>
-        <template v-if="showSubscribeAdvanced">
-          <el-form-item label="集数范围">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <el-input-number v-model="subscribeForm.min_episode" :min="0" :max="9999" placeholder="最小" controls-position="right" />
-              <span>—</span>
-              <el-input-number v-model="subscribeForm.max_episode" :min="0" :max="9999" placeholder="最大" controls-position="right" />
-            </div>
-          </el-form-item>
-          <el-form-item label="正则匹配">
-            <el-input v-model="subscribeForm.regex_pattern" placeholder="正则表达式匹配标题" />
-          </el-form-item>
-        </template>
-      </el-form>
-      <template #footer>
-        <el-button @click="showSubscribeDialog = false">取消</el-button>
-        <el-button type="primary" :loading="subscribing" @click="handleSubscribe">确定</el-button>
-      </template>
-    </el-dialog>
-
-    <FilterDialog
-      v-model="showFilterDialog"
-      :subscription-id="subscriptionId || 0"
+    <!-- 新建订阅与编辑订阅设置共用同一个弹窗（subscriptionId 为空即新建） -->
+    <SubscriptionSettingsDialog
+      v-model="showSettingsDialog"
+      :bangumi-id="bangumiId"
+      :bangumi-name="bangumi?.name"
+      :subscription-id="subscriptionId"
+      :status="subscriptionStatus"
       :filter-data="subscriptionFilter"
+      :filter-mode="isSubscribed ? subscriptionMode : undefined"
+      :has-global-filter="globalFilterAvailable"
       :subtitle-group-options="subtitleGroupOptions"
-      @saved="handleFilterSaved"
-      @deleted="handleFilterDeleted"
+      @saved="handleSettingsSaved"
     />
   </div>
 </template>
@@ -228,9 +143,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
-import { bangumiApi, subscriptionApi, downloaderApi } from '@/api'
-import { LANGUAGE_OPTION_VALUES, LANGUAGE_KEYWORDS } from '@/constants'
-import FilterDialog from '@/components/FilterDialog.vue'
+import { bangumiApi, subscriptionApi } from '@/api'
+import SubscriptionSettingsDialog from '@/components/SubscriptionSettingsDialog.vue'
 
 dayjs.extend(utc)
 
@@ -266,15 +180,6 @@ interface Bangumi {
   episodes: Episode[]
 }
 
-interface Downloader {
-  id: number
-  name: string
-  downloader_type: string
-  host: string
-  port: number
-  is_default: boolean
-}
-
 const router = useRouter()
 const route = useRoute()
 
@@ -285,44 +190,13 @@ const episodes = ref<Episode[]>([])
 const isSubscribed = ref(false)
 const subscriptionId = ref<number | null>(null)
 const subscriptionFilter = ref<BangumiFilter | null>(null)
-const downloaders = ref<Downloader[]>([])
-const showFilterDialog = ref(false)
-
-const showSubscribeDialog = ref(false)
-const subscribing = ref(false)
-const showSubscribeAdvanced = ref(false)
-const subscribeForm = ref({
-  auto_download: false,
-  downloader_id: null as number | null,
-  save_path: '',
-  language: [] as string[],
-  include_keywords: [] as string[],
-  exclude_keywords: [] as string[],
-  subtitle_groups: [] as string[],
-  regex_pattern: '',
-  min_episode: undefined as number | undefined,
-  max_episode: undefined as number | undefined,
-})
-
-const languageOptions = LANGUAGE_OPTION_VALUES
-
-watch(showSubscribeDialog, (val) => {
-  if (val) {
-    subscribeForm.value = {
-      auto_download: false,
-      downloader_id: null,
-      save_path: '',
-      language: [],
-      include_keywords: [],
-      exclude_keywords: [],
-      subtitle_groups: [],
-      regex_pattern: '',
-      min_episode: undefined,
-      max_episode: undefined,
-    }
-    showSubscribeAdvanced.value = false
-  }
-})
+const subscriptionMode = ref<'inherit' | 'custom'>('inherit')
+const subscriptionStatus = ref(1)
+const activeSource = ref<'global' | 'custom' | 'none'>('none')
+const globalFilterAvailable = ref(false)
+const activeSubtitleGroups = ref('')
+const matchedEpisodeIds = ref<Set<number>>(new Set())
+const showSettingsDialog = ref(false)
 
 const overflowStates = ref<Record<number, boolean>>({})
 const titleElements = ref<Map<number, HTMLElement>>(new Map())
@@ -417,67 +291,10 @@ const subtitleGroupOptions = computed(() => {
     .filter(Boolean)
 })
 
-function matchEpisode(episode: Episode): boolean {
-  const f = subscriptionFilter.value
-  if (!f) return true
-
-  if (f.include_keywords) {
-    const keywords = f.include_keywords.split(',').map(s => s.trim()).filter(Boolean)
-    for (const kw of keywords) {
-      if (kw.toLowerCase() && !episode.title.toLowerCase().includes(kw.toLowerCase())) {
-        return false
-      }
-    }
-  }
-
-  if (f.exclude_keywords) {
-    const keywords = f.exclude_keywords.split(',').map(s => s.trim()).filter(Boolean)
-    for (const kw of keywords) {
-      if (kw.toLowerCase() && episode.title.toLowerCase().includes(kw.toLowerCase())) {
-        return false
-      }
-    }
-  }
-
-  if (f.subtitle_groups) {
-    const allowed = f.subtitle_groups.split(',').map(s => s.trim()).filter(Boolean)
-    if (episode.subtitle_group) {
-      if (!allowed.some(a => a.toLowerCase() && episode.subtitle_group.toLowerCase().includes(a.toLowerCase()))) {
-        return false
-      }
-    } else {
-      if (allowed.length > 0) return false
-    }
-  }
-
-  if (f.language) {
-    const languages = f.language.split(',').map(s => s.trim()).filter(Boolean)
-    const title = episode.title.toLowerCase()
-    const matched = languages.some((lang) => {
-      const keywords = (LANGUAGE_KEYWORDS[lang] || [lang]).map(k => k.toLowerCase())
-      return keywords.some(kw => title.includes(kw))
-    })
-    if (!matched) return false
-  }
-
-  if (f.regex_pattern) {
-    try {
-      if (!new RegExp(f.regex_pattern).test(episode.title)) return false
-    } catch {
-      // invalid regex, skip
-    }
-  }
-
-  if (f.min_episode !== null && f.min_episode !== undefined && episode.episode_number < f.min_episode) return false
-  if (f.max_episode !== null && f.max_episode !== undefined && episode.episode_number > f.max_episode) return false
-
-  return true
-}
-
 function isGroupSubscribed(groupName: string): boolean {
-  const f = subscriptionFilter.value
-  if (!f?.subtitle_groups) return false
-  const allowed = f.subtitle_groups.split(',').map(s => s.trim()).filter(Boolean)
+  // 生效规则的字幕组由后端给出（可能是全局规则，也可能是订阅自己的规则）
+  if (!activeSubtitleGroups.value) return false
+  const allowed = activeSubtitleGroups.value.split(',').map(s => s.trim()).filter(Boolean)
   return allowed.some(a => a.toLowerCase() && groupName.toLowerCase().includes(a.toLowerCase()))
 }
 
@@ -496,70 +313,21 @@ async function fetchBangumi() {
       isSubscribed.value = true
       subscriptionId.value = sub.id
       subscriptionFilter.value = sub.filter || null
+      subscriptionMode.value = sub.filter_mode || 'inherit'
+      subscriptionStatus.value = sub.status ?? 1
+    } else {
+      isSubscribed.value = false
+      subscriptionId.value = null
+      subscriptionFilter.value = null
+      subscriptionMode.value = 'inherit'
     }
+    await fetchFiltering()
   } catch {
     // Error handled by interceptor
   } finally {
     loading.value = false
     await nextTick()
     checkAllOverflow()
-  }
-}
-
-async function fetchDownloaders() {
-  try {
-    const response = await downloaderApi.getAll()
-    downloaders.value = response.data
-  } catch {
-    // Error handled by interceptor
-  }
-}
-
-async function handleSubscribe() {
-  subscribing.value = true
-  try {
-    const payload: { bangumi_id: number } & Record<string, unknown> = {
-      bangumi_id: bangumiId.value,
-      auto_download: subscribeForm.value.auto_download,
-    }
-    if (subscribeForm.value.auto_download) {
-      if (subscribeForm.value.downloader_id) {
-        payload.downloader_id = subscribeForm.value.downloader_id
-      }
-      if (subscribeForm.value.save_path) {
-        payload.save_path = subscribeForm.value.save_path
-      }
-    }
-    if (subscribeForm.value.language.length > 0) {
-      payload.language = subscribeForm.value.language.join(',')
-    }
-    if (subscribeForm.value.include_keywords.length > 0) {
-      payload.include_keywords = subscribeForm.value.include_keywords.join(',')
-    }
-    if (subscribeForm.value.exclude_keywords.length > 0) {
-      payload.exclude_keywords = subscribeForm.value.exclude_keywords.join(',')
-    }
-    if (subscribeForm.value.subtitle_groups.length > 0) {
-      payload.subtitle_groups = subscribeForm.value.subtitle_groups.join(',')
-    }
-    if (subscribeForm.value.regex_pattern) {
-      payload.regex_pattern = subscribeForm.value.regex_pattern
-    }
-    if (subscribeForm.value.min_episode !== undefined && subscribeForm.value.min_episode !== null) {
-      payload.min_episode = subscribeForm.value.min_episode
-    }
-    if (subscribeForm.value.max_episode !== undefined && subscribeForm.value.max_episode !== null) {
-      payload.max_episode = subscribeForm.value.max_episode
-    }
-    await subscriptionApi.create(payload)
-    ElMessage.success('订阅成功')
-    showSubscribeDialog.value = false
-    isSubscribed.value = true
-    await fetchBangumi()
-  } catch {
-    // Error handled by interceptor
-  } finally {
-    subscribing.value = false
   }
 }
 
@@ -571,6 +339,11 @@ async function handleUnsubscribe() {
     isSubscribed.value = false
     subscriptionId.value = null
     subscriptionFilter.value = null
+    subscriptionMode.value = 'inherit'
+    subscriptionStatus.value = 1
+    activeSource.value = 'none'
+    activeSubtitleGroups.value = ''
+    matchedEpisodeIds.value = new Set()
   } catch {
     // Error handled by interceptor
   }
@@ -594,50 +367,48 @@ function copyToClipboard(text: string, label: string = '链接') {
   ElMessage.success(`${label}已复制到剪贴板`)
 }
 
-async function handleDownload(episode: Episode, type: 'magnet' | 'torrent') {
-  const link = type === 'magnet' ? episode.magnet_url : episode.torrent_url
-  
-  if (!link) {
-    ElMessage.warning('该剧集没有对应的下载链接')
+// 下载一律在本地完成：复制磁力交给本机客户端，或下载 .torrent 文件。
+// 服务器不代管下载器（公网实例够不到用户家里的下载器），详见 documents/auto-download-redesign.md
+function copyMagnet(episode: Episode) {
+  if (!episode.magnet_url) {
+    ElMessage.warning('该剧集没有磁力链接')
     return
   }
+  copyToClipboard(episode.magnet_url, '磁力链接')
+}
 
-  if (downloaders.value.length === 0) {
-    copyToClipboard(link, type === 'magnet' ? '磁力链接' : '种子链接')
+function openTorrent(episode: Episode) {
+  if (!episode.torrent_url) {
+    ElMessage.warning('该剧集没有种子链接')
     return
   }
+  window.open(episode.torrent_url, '_blank', 'noopener')
+}
 
-  const defaultDownloader = downloaders.value.find(d => d.is_default) || downloaders.value[0]
-
+async function fetchFiltering() {
+  if (!subscriptionId.value) {
+    activeSource.value = 'none'
+    activeSubtitleGroups.value = ''
+    matchedEpisodeIds.value = new Set()
+    return
+  }
   try {
-    const response = await downloaderApi.download({
-      episode_ids: [episode.id],
-      downloader_id: defaultDownloader.id,
-      download_type: type,
-    })
-
-    if (response.data.download_url) {
-      copyToClipboard(response.data.download_url, '下载链接')
-    } else {
-      ElMessage.success(response.data.message || '下载任务已添加')
-    }
+    const { data } = await subscriptionApi.filtering(subscriptionId.value)
+    activeSource.value = data.active_source
+    globalFilterAvailable.value = data.global_filter_available
+    activeSubtitleGroups.value = data.active_subtitle_groups || ''
+    matchedEpisodeIds.value = new Set<number>(data.matched_episode_ids || [])
   } catch {
     // Error handled by interceptor
   }
 }
 
-async function handleFilterSaved() {
-  await fetchBangumi()
-}
-
-async function handleFilterDeleted() {
-  subscriptionFilter.value = null
+async function handleSettingsSaved() {
   await fetchBangumi()
 }
 
 onMounted(() => {
   fetchBangumi()
-  fetchDownloaders()
 })
 </script>
 

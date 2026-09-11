@@ -53,9 +53,7 @@ export const subscriptionApi = {
   getAll: () => api.get('/subscriptions'),
   create: (data: {
     bangumi_id: number
-    auto_download?: boolean
-    downloader_id?: number
-    save_path?: string
+    filter_mode?: 'inherit' | 'custom'
     include_keywords?: string
     exclude_keywords?: string
     subtitle_groups?: string
@@ -67,21 +65,19 @@ export const subscriptionApi = {
     api.post('/subscriptions', data),
   update: (id: number, data: Record<string, unknown>) => api.put(`/subscriptions/${id}`, data),
   delete: (id: number) => api.delete(`/subscriptions/${id}`),
+  // 当前生效的过滤规则来源与命中剧集（判定只由后端实现，前端不再复制一套）
+  filtering: (id: number) => api.get(`/subscriptions/${id}/filtering`),
   getFilter: (id: number) => api.get(`/subscriptions/${id}/filter`),
   createFilter: (id: number, data: Record<string, unknown>) => api.post(`/subscriptions/${id}/filter`, data),
   updateFilter: (id: number, data: Record<string, unknown>) => api.put(`/subscriptions/${id}/filter`, data),
   deleteFilter: (id: number) => api.delete(`/subscriptions/${id}/filter`),
 }
 
-export const downloaderApi = {
-  getAll: () => api.get('/downloaders'),
-  create: (data: Record<string, unknown>) => api.post('/downloaders', data),
-  update: (id: number, data: Record<string, unknown>) => api.put(`/downloaders/${id}`, data),
-  delete: (id: number) => api.delete(`/downloaders/${id}`),
-  test: (id: number) => api.post(`/downloaders/${id}/test`),
-  download: (data: { episode_ids: number[]; downloader_id?: number; download_type?: string }) => 
-    api.post('/downloaders/download', data),
-  regenerateRssToken: (subscriptionId: number) => api.post(`/downloaders/rss/${subscriptionId}/regenerate`),
+// 投放方式只有 RSS：服务器出 feed，用户自己的下载器按间隔拉取（详见 documents/auto-download-redesign.md）
+export const rssApi = {
+  subscriptionFeedUrl: (subscriptionId: number) => `/api/rss/subscription/${subscriptionId}`,
+  regenerateSubscriptionToken: (subscriptionId: number) =>
+    api.post(`/rss/subscription/${subscriptionId}/regenerate`),
 }
 
 export const authApi = {

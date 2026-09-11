@@ -42,11 +42,6 @@ const router = createRouter({
           component: () => import('@/views/Search.vue'),
         },
         {
-          path: 'downloaders',
-          name: 'Downloaders',
-          component: () => import('@/views/Downloaders.vue'),
-        },
-        {
           path: 'settings',
           name: 'Settings',
           component: () => import('@/views/Settings.vue'),

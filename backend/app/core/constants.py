@@ -20,3 +20,20 @@ LANGUAGE_OPTIONS = [
 ]
 
 LANGUAGE_KEYWORDS = {item["value"]: item["keywords"] for item in LANGUAGE_OPTIONS}
+
+
+class FilterMode:
+    """订阅过滤规则的来源。
+
+    INHERIT: 使用用户的「全局默认规则」；CUSTOM: 使用订阅自身的规则。
+    两者互斥、不叠加（此前是硬 AND，用户无法为单个订阅开例外）。
+    """
+
+    INHERIT = "inherit"
+    CUSTOM = "custom"
+
+    ALL_MODES = [INHERIT, CUSTOM]
+
+    @classmethod
+    def is_valid(cls, mode: str) -> bool:
+        return mode in cls.ALL_MODES
