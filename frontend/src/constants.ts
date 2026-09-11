@@ -12,7 +12,3 @@ export const LANGUAGE_OPTIONS: LanguageOption[] = [
 ]
 
 export const LANGUAGE_OPTION_VALUES: string[] = LANGUAGE_OPTIONS.map(o => o.value)
-
-export const LANGUAGE_KEYWORDS: Record<string, string[]> = Object.fromEntries(
-  LANGUAGE_OPTIONS.map(o => [o.value, o.keywords]),
-)

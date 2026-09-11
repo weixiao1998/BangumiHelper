@@ -53,6 +53,7 @@ export const subscriptionApi = {
   getAll: () => api.get('/subscriptions'),
   create: (data: {
     bangumi_id: number
+    filter_mode?: 'inherit' | 'custom'
     include_keywords?: string
     exclude_keywords?: string
     subtitle_groups?: string
@@ -64,6 +65,8 @@ export const subscriptionApi = {
     api.post('/subscriptions', data),
   update: (id: number, data: Record<string, unknown>) => api.put(`/subscriptions/${id}`, data),
   delete: (id: number) => api.delete(`/subscriptions/${id}`),
+  // 当前生效的过滤规则来源与命中剧集（判定只由后端实现，前端不再复制一套）
+  filtering: (id: number) => api.get(`/subscriptions/${id}/filtering`),
   getFilter: (id: number) => api.get(`/subscriptions/${id}/filter`),
   createFilter: (id: number, data: Record<string, unknown>) => api.post(`/subscriptions/${id}/filter`, data),
   updateFilter: (id: number, data: Record<string, unknown>) => api.put(`/subscriptions/${id}/filter`, data),

@@ -99,6 +99,23 @@ pnpm dev
 - token 为两级：用户级 `users.rss_token` 与订阅级 `subscriptions.rss_token`，均可用
   `secrets.token_hex(32)` 重置。
 
+## 过滤规则
+
+一个订阅任一时刻只有一份生效规则，由 `subscriptions.filter_mode` 决定：
+
+- `inherit`（默认）→ 用户的全局默认规则 `GlobalFilter`
+- `custom` → 订阅自身的 `BangumiFilter`
+
+两者**互斥、不叠加**（此前是硬 AND，无法为单个订阅开例外）。相关约定：
+
+- 判定只在 `app/core/filter_utils.py` 实现一处：`select_filter()` 选规则、`filter_episodes()` 过滤。
+  **不要在前端再写一份**——历史上详情页复制过一份，且漏掉了全局规则，导致"页面说会下载、RSS 里没有"。
+  前端需要命中结果时用 `GET /api/subscriptions/{id}/filtering`。
+- **空规则（无条件）= 不过滤**：允许 `custom` + 无条件，`select_filter()` 会把空规则当作 `None`，
+  `describe_source()` 返回 `none`（前端据此不显示"已过滤"）。新建规则自动切 `custom`，
+  删除规则回落 `inherit`；`inherit` 模式下订阅自身的规则保留但停用。
+- 两张规则表字段必须保持一致（含 `language`），便于共用判定函数。
+
 ## 时间处理规范
 
 - 后端统一使用 UTC 时间存储和传输

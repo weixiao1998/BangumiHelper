@@ -20,13 +20,15 @@
                   <img :src="'/placeholder.png'" alt="" class="cover" />
                 </template>
               </el-image>
-              <span v-if="sub.filter" class="status-badge" title="已配置过滤规则">已过滤</span>
+              <span v-if="filterBadge(sub)" class="status-badge" :title="filterBadgeTitle(sub)">
+                {{ filterBadge(sub) }}
+              </span>
               <span v-if="sub.status === 0" class="status-badge status-badge--paused" title="订阅已暂停">已暂停</span>
             </div>
             <div class="info">
               <h4 class="name" :title="sub.bangumi.name">{{ sub.bangumi.name }}</h4>
               <div class="actions" @click.stop>
-                <button type="button" class="action" title="配置下载过滤规则" @click="showFilterDialog(sub)">过滤</button>
+                <button type="button" class="action" title="订阅设置：过滤规则与暂停" @click="openSettings(sub)">设置</button>
                 <button type="button" class="action" title="查看 RSS 订阅链接" @click="showRssDialog(sub)">RSS</button>
                 <button
                   type="button"
@@ -53,14 +55,7 @@
         style="margin-bottom: 16px"
       />
       <p style="color: #909399; font-size: 12px;">如果链接泄露，可以点击"重新生成"按钮获取新链接</p>
-      <el-divider />
-      <div class="pause-row">
-        <div>
-          <div class="pause-title">暂停此订阅</div>
-          <div class="pause-desc">暂停后该订阅不再出现在 RSS 中，过滤规则与配置保留</div>
-        </div>
-        <el-switch :model-value="currentRssSubscription?.status !== 0" @change="handleToggleStatus" />
-      </div>
+      <p style="color: #909399; font-size: 12px;">暂停订阅、过滤规则请在卡片上的「设置」里调整。</p>
       <template #footer>
         <el-button @click="rssDialogVisible = false">关闭</el-button>
         <el-button @click="handleRegenerateToken">重新生成</el-button>
@@ -68,23 +63,27 @@
       </template>
     </el-dialog>
 
-    <FilterDialog
-      v-model="filterDialogVisible"
-      :subscription-id="filterSubscriptionId"
-      :filter-data="filterData"
-      :subtitle-group-options="filterSubtitleGroups"
+    <SubscriptionSettingsDialog
+      v-model="settingsVisible"
+      :bangumi-id="settingsTarget?.bangumi.id || 0"
+      :bangumi-name="settingsTarget?.bangumi.name"
+      :subscription-id="settingsTarget?.id"
+      :status="settingsTarget?.status"
+      :filter-data="settingsTarget?.filter || null"
+      :filter-mode="settingsTarget?.filter_mode"
+      :has-global-filter="hasGlobalFilter"
+      :subtitle-group-options="parseSubtitleGroups(settingsTarget?.bangumi.subtitle_groups)"
       @saved="handleFilterSaved"
-      @deleted="handleFilterDeleted"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { subscriptionApi, rssApi } from '@/api'
-import FilterDialog from '@/components/FilterDialog.vue'
+import { subscriptionApi, rssApi, userApi } from '@/api'
+import SubscriptionSettingsDialog from '@/components/SubscriptionSettingsDialog.vue'
 
 interface BangumiFilter {
   include_keywords: string | null
@@ -99,6 +98,7 @@ interface BangumiFilter {
 interface Subscription {
   id: number
   status: number
+  filter_mode: string
   rss_token?: string
   bangumi: {
     id: number
@@ -114,12 +114,13 @@ const router = useRouter()
 const loading = ref(true)
 const subscriptions = ref<Subscription[]>([])
 const rssDialogVisible = ref(false)
-const filterDialogVisible = ref(false)
 const rssUrl = ref('')
 const currentRssSubscription = ref<Subscription | null>(null)
-const filterSubscriptionId = ref(0)
-const filterData = ref<BangumiFilter | null>(null)
-const filterSubtitleGroups = ref<string[]>([])
+const settingsVisible = ref(false)
+const settingsTarget = ref<Subscription | null>(null)
+// 用户的全局默认规则对象：只有"真的有条件"时继承模式才值得标注
+const globalFilter = ref<BangumiFilter | null>(null)
+const hasGlobalFilter = computed(() => ruleHasConditions(globalFilter.value))
 
 function parseSubtitleGroups(val: string | null | undefined): string[] {
   if (!val) return []
@@ -161,23 +162,39 @@ async function showRssDialog(sub: Subscription) {
   rssDialogVisible.value = true
 }
 
-function showFilterDialog(sub: Subscription) {
-  filterSubscriptionId.value = sub.id
-  filterData.value = sub.filter || null
-  filterSubtitleGroups.value = parseSubtitleGroups(sub.bangumi.subtitle_groups)
-  filterDialogVisible.value = true
+function openSettings(sub: Subscription) {
+  settingsTarget.value = sub
+  settingsVisible.value = true
 }
 
-async function handleToggleStatus(value: boolean | string | number) {
-  const sub = currentRssSubscription.value
-  if (!sub) return
-  const status = value ? 1 : 0
+// 规则是否真的设置了条件（空规则 == 不过滤，不该显示成"已过滤"）
+function ruleHasConditions(rule: BangumiFilter | null | undefined): boolean {
+  if (!rule) return false
+  return Boolean(
+    rule.include_keywords ||
+      rule.exclude_keywords ||
+      rule.subtitle_groups ||
+      rule.language ||
+      rule.regex_pattern ||
+      (rule.min_episode !== null && rule.min_episode !== undefined) ||
+      (rule.max_episode !== null && rule.max_episode !== undefined),
+  )
+}
+
+// 卡片角标：只标注“真的有规则在生效”的情况
+function filterBadge(sub: Subscription): string {
+  if (sub.filter_mode === 'custom') return ruleHasConditions(sub.filter) ? '自定义过滤' : ''
+  return hasGlobalFilter.value ? '全局过滤' : ''
+}
+
+function filterBadgeTitle(sub: Subscription): string {
+  return sub.filter_mode === 'custom' ? '使用该订阅自己的过滤规则（全局规则不生效）' : '继承全局默认规则'
+}
+
+async function fetchGlobalFilter() {
   try {
-    await subscriptionApi.update(sub.id, { status })
-    sub.status = status
-    const target = subscriptions.value.find(s => s.id === sub.id)
-    if (target) target.status = status
-    ElMessage.success(status === 1 ? '已启用订阅' : '已暂停订阅')
+    const response = await userApi.getGlobalFilter()
+    globalFilter.value = response.data || null
   } catch {
     // Error handled by interceptor
   }
@@ -218,36 +235,16 @@ async function handleUnsubscribe(id: number) {
 
 async function handleFilterSaved() {
   await fetchSubscriptions()
-}
-
-async function handleFilterDeleted() {
-  await fetchSubscriptions()
+  await fetchGlobalFilter()
 }
 
 onMounted(() => {
   fetchSubscriptions()
+  fetchGlobalFilter()
 })
 </script>
 
 <style scoped lang="scss">
-.pause-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-
-  .pause-title {
-    font-size: 14px;
-    color: #303133;
-  }
-
-  .pause-desc {
-    margin-top: 2px;
-    font-size: 12px;
-    color: #909399;
-  }
-}
-
 .page-header {
   margin-bottom: 20px;
 

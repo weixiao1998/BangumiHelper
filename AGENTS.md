@@ -68,6 +68,7 @@ frontend/src/
 ├── api/index.ts             # Axios 实例, /api baseURL, token 拦截, 401→login
 ├── stores/user.ts           # Pinia (组合式), localStorage token
 ├── router/index.ts          # 认证守卫
+├── components/              # SubscriptionSettingsDialog（订阅设置：新建/编辑共用，含规则来源与暂停）
 ├── views/                   # Calendar, BangumiDetail, Search, Subscriptions, Settings, Login, Register
 ├── layouts/MainLayout.vue
 └── @ 别名 → src/
@@ -81,6 +82,7 @@ frontend/src/
 - **包管理**: 使用 uv 管理依赖，`uv.lock` 锁定版本，应该尽量选用维护活跃的依赖
 - **插件模式**: 数据源 → 继承抽象基类 → `__init__.py` 注册字典 → 工厂函数获取
 - **下载投放方式**: 只有 RSS（服务端出 feed，用户下载器拉取）。目标形态是公网共享实例，用户下载器在各自 NAT 后，服务器**无法**主动推送，因此不提供"服务器直推下载器"的字段与接口；下载器地址/凭据不应再进入数据模型
+- **过滤规则来源**: 订阅在任一时刻只有一份生效规则，由 `subscriptions.filter_mode` 决定（`inherit`=用户全局默认规则 / `custom`=订阅自身规则），**互斥不叠加**；**空规则（无条件）= 不过滤**；判定只在后端 `core/filter_utils.py` 实现一处，前端不得再复制一份（详情页用 `GET /subscriptions/{id}/filtering` 拿命中集）
 - **单文件模型**: `models/models.py`; 所有 Pydantic schema 在 `schemas/schemas.py`
 - **前端自动导入**: Element Plus 组件/图标无需手动 import
 - **Lint**: Ruff line-length=120, target=py314, 忽略 E501
@@ -95,6 +97,7 @@ frontend/src/
 |------|------|
 | 开发指南（新增数据源、RSS feed/窗口语义、时间处理规范、Docker 开发模式） | [documents/development.md](documents/development.md) |
 | 订阅/自动下载重构设计（为何只用 RSS、窗口语义、决策记录） | [documents/auto-download-redesign.md](documents/auto-download-redesign.md) |
+| 过滤规则重构设计（全局默认规则 vs 订阅自定义、判定收敛到后端） | [documents/filter-redesign.md](documents/filter-redesign.md) |
 | Docker 生产部署、Caddy 配置、数据源刷新 | [documents/deployment.md](documents/deployment.md) |
 | 运维操作（容器内 mysql 操作数据库、换 MIKAN_URL 数据处理等） | [documents/operations.md](documents/operations.md) |
 

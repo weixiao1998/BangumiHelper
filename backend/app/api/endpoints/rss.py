@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.endpoints.auth import get_current_active_user
 from app.core.database import get_async_session
-from app.core.filter_utils import filter_episodes
+from app.core.filter_utils import filter_episodes, select_filter
 from app.models.models import Episode, GlobalFilter, Subscription, User
 from app.services.rss_feed import apply_window, build_feed, resolve_window
 
@@ -60,7 +60,9 @@ async def _subscription_feed(
     episodes = (await session.execute(stmt)).scalars().all()
 
     global_filter = await _get_global_filter(session, subscription.user_id)
-    episodes = filter_episodes(list(episodes), subscription.filter, global_filter)
+    # filter_mode 决定用全局默认规则还是订阅自身规则（互斥，不叠加）
+    active_filter = select_filter(subscription.filter, global_filter, subscription.filter_mode)
+    episodes = filter_episodes(list(episodes), active_filter)
     # 条数上限在过滤之后生效，保证"窗口内有命中却返回空"不会发生
     if window_limit is not None:
         episodes = episodes[:window_limit]
@@ -117,12 +119,17 @@ async def _user_feed(
     episodes = (await session.execute(stmt)).scalars().all()
 
     global_filter = await _get_global_filter(session, user.id)
+    # 每个订阅按各自的 filter_mode 解析出生效规则，避免每个 episode 重复计算
+    active_by_bangumi = {
+        sub.bangumi_id: select_filter(sub.filter, global_filter, sub.filter_mode)
+        for sub in subscriptions
+    }
     entries: list[tuple[str | None, Episode]] = []
     for ep in episodes:
         sub = subscription_by_bangumi.get(ep.bangumi_id)
         if sub is None:  # 理论上不会发生，防御性跳过
             continue
-        if filter_episodes([ep], sub.filter, global_filter):
+        if filter_episodes([ep], active_by_bangumi[ep.bangumi_id]):
             entries.append((sub.bangumi.name, ep))
 
     # 顺序来自 SQL 的 publish_time desc，过滤不改变顺序，这里再按条数截断
