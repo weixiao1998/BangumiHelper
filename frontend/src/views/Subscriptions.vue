@@ -13,19 +13,29 @@
     <template v-else>
       <el-row :gutter="12">
         <el-col v-for="sub in subscriptions" :key="sub.id" :xs="12" :sm="8" :md="6" :lg="4" :xl="3">
-          <el-card class="subscription-card" @click="router.push(`/bangumi/${sub.bangumi.id}`)">
-            <el-image :src="sub.bangumi.cover || '/placeholder.png'" fit="cover" class="cover">
-              <template #error>
-                <img :src="'/placeholder.png'" alt="" class="cover" />
-              </template>
-            </el-image>
+          <el-card class="subscription-card" shadow="hover" @click="router.push(`/bangumi/${sub.bangumi.id}`)">
+            <div class="cover-wrap">
+              <el-image :src="sub.bangumi.cover || '/placeholder.png'" fit="cover" class="cover">
+                <template #error>
+                  <img :src="'/placeholder.png'" alt="" class="cover" />
+                </template>
+              </el-image>
+              <span v-if="sub.filter" class="status-badge" title="已配置过滤规则">已过滤</span>
+              <span v-if="sub.status === 0" class="status-badge status-badge--paused" title="订阅已暂停">已暂停</span>
+            </div>
             <div class="info">
-              <h4>{{ sub.bangumi.name }}</h4>
-              <el-tag v-if="sub.filter" size="small" type="warning" style="margin-bottom: 8px;">已过滤</el-tag>
+              <h4 class="name" :title="sub.bangumi.name">{{ sub.bangumi.name }}</h4>
               <div class="actions" @click.stop>
-                <el-button size="small" @click="showFilterDialog(sub)">过滤</el-button>
-                <el-button size="small" @click="showRssDialog(sub)">RSS</el-button>
-                <el-button size="small" type="danger" @click="handleUnsubscribe(sub.id)">取消</el-button>
+                <button type="button" class="action" title="配置下载过滤规则" @click="showFilterDialog(sub)">过滤</button>
+                <button type="button" class="action" title="查看 RSS 订阅链接" @click="showRssDialog(sub)">RSS</button>
+                <button
+                  type="button"
+                  class="action action--danger"
+                  title="取消订阅"
+                  @click="handleUnsubscribe(sub.id)"
+                >
+                  取消
+                </button>
               </div>
             </div>
           </el-card>
@@ -80,6 +90,7 @@ interface BangumiFilter {
 
 interface Subscription {
   id: number
+  status: number
   rss_token?: string
   bangumi: {
     id: number
@@ -205,39 +216,118 @@ onMounted(() => {
 }
 
 .subscription-card {
+  margin-bottom: 12px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
+
+  :deep(.el-card__body) {
+    padding: 10px;
+  }
 
   &:hover {
     transform: translateY(-4px);
   }
 
+  // 封面：圆角裁切 + 悬停轻微放大，避免图片边缘生硬
+  .cover-wrap {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    aspect-ratio: 3 / 4;
+    background: #f2f3f5;
+  }
+
   .cover {
+    display: block;
     width: 100%;
-    aspect-ratio: 3/4;
-    border-radius: 4px;
+    height: 100%;
+    transition: transform 0.3s ease;
+  }
+
+  &:hover .cover {
+    transform: scale(1.04);
+  }
+
+  // 过滤状态作为封面角标，不再单独占一行
+  .status-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 16px;
+    color: #fff;
+    background: rgba(230, 162, 60, 0.92);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+
+    &--paused {
+      right: 8px;
+      left: auto;
+      background: rgba(144, 147, 153, 0.92);
+    }
   }
 
   .info {
-    padding: 12px 0;
+    padding: 10px 2px 2px;
+  }
 
-    h4 {
-      margin: 0 0 8px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+  // 标题固定两行高度，卡片底部对齐、长标题自动省略
+  .name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    height: 2.6em;
+    margin: 0 0 8px;
+    color: #303133;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+
+  // 三段式操作条：浅灰底等宽分割，替代三个实心按钮的视觉噪音
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 8px;
+    background: #f5f7fa;
+  }
+
+  .action {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 28px;
+    padding: 0 2px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #606266;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+
+    &:hover {
+      background: #fff;
+      color: var(--el-color-primary);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
-    p {
-      margin: 0 0 12px;
-      color: #909399;
-      font-size: 14px;
+    &:focus-visible {
+      outline: 2px solid var(--el-color-primary-light-5);
+      outline-offset: 1px;
     }
 
-    .actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+    &--danger:hover {
+      background: var(--el-color-danger-light-9);
+      color: var(--el-color-danger);
     }
   }
 }

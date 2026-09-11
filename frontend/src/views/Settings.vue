@@ -168,9 +168,6 @@
               <el-button type="primary" :loading="systemLoading" @click="handleUpdateSystem">保存配置</el-button>
             </el-form-item>
           </el-form>
-          <el-alert type="info" :closable="false" style="margin-top: 16px">
-            这些配置保存在数据库中，修改后即时生效，无需重启容器。
-          </el-alert>
         </el-card>
       </el-tab-pane>
 
