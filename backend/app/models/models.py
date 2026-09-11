@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.constants import FilterMode
 from app.core.database import Base
 from app.core.utils import utc_now
 
@@ -103,6 +104,8 @@ class Subscription(Base):
     bangumi_id: Mapped[int] = mapped_column(Integer, ForeignKey("bangumi.id", ondelete="CASCADE"), nullable=False)
     # 1=启用，0=暂停（暂停的订阅不输出到 RSS）
     status: Mapped[int] = mapped_column(Integer, default=1)
+    # 过滤规则来源：inherit=用用户的全局默认规则，custom=用订阅自身的规则（互斥，不叠加）
+    filter_mode: Mapped[str] = mapped_column(String(10), default=FilterMode.INHERIT, nullable=False)
     rss_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
@@ -134,6 +137,12 @@ class BangumiFilter(Base):
 
 
 class GlobalFilter(Base):
+    """用户级默认过滤规则。
+
+    字段与 BangumiFilter 保持一致（含 language）。它是「默认值」而非「叠加层」：
+    订阅用 filter_mode=inherit 时使用它，用 custom 时改用自己的规则。
+    """
+
     __tablename__ = "global_filters"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -141,6 +150,7 @@ class GlobalFilter(Base):
     include_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
     exclude_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
     subtitle_groups: Mapped[str | None] = mapped_column(Text, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(100), nullable=True)
     regex_pattern: Mapped[str | None] = mapped_column(String(500), nullable=True)
     min_episode: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_episode: Mapped[int | None] = mapped_column(Integer, nullable=True)
