@@ -21,6 +21,8 @@ router = APIRouter()
 
 SUBSCRIPTION_BASE_OPTIONS = (
     selectinload(Subscription.bangumi).selectinload(Bangumi.episodes),
+    # BangumiResponse.seasons 需要该关系；缺失会在响应序列化时触发懒加载 → MissingGreenlet → 500
+    selectinload(Subscription.bangumi).selectinload(Bangumi.seasons),
     selectinload(Subscription.filter),
 )
 
