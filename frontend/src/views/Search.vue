@@ -40,7 +40,7 @@
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="copyMagnet(row.magnet_url || row.torrent_url)">复制磁力</el-button>
-          <el-button v-if="row.torrent_url" size="small" type="primary" @click="openTorrent(row)">下载种子</el-button>
+          <el-button v-if="row.torrent_url" size="small" type="primary" @click="openTorrent(row as SearchResult)">下载种子</el-button>
         </template>
       </el-table-column>
     </el-table>
