@@ -77,9 +77,6 @@ async def create_subscription(
     subscription = Subscription(
         user_id=current_user.id,
         bangumi_id=subscription_create.bangumi_id,
-        auto_download=subscription_create.auto_download,
-        downloader_id=subscription_create.downloader_id,
-        save_path=subscription_create.save_path,
     )
 
     session.add(subscription)

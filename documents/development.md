@@ -80,17 +80,24 @@ pnpm dev
    ```
 6. 更新 `schemas/schemas.py` 如需新 schema
 
-## 新增下载器检查清单
+## RSS feed 与窗口语义
 
-1. 在 `services/downloaders/` 下新建文件，继承 `BaseDownloader`
-2. 实现抽象方法：
-   - `add_torrent` - 添加种子文件
-   - `add_magnet` - 添加磁力链接
-   - `get_torrents` - 获取任务列表
-   - `remove_torrent` - 删除任务
-3. 在 `services/downloaders/__init__.py` 的 `DOWNLOADERS` 字典中注册
-4. 如需新数据库字段：创建 Alembic 迁移
-5. 更新 `schemas/schemas.py` 如需新 schema
+投放方式只有 RSS：服务端生成 feed，用户自己的下载器按间隔拉取。因此服务端**不保存**下载器
+地址/凭据，也没有"服务器直推"的接口（原因见 [订阅/自动下载重构设计](auto-download-redesign.md)）。
+
+- 构造逻辑集中在 `services/rss_feed.py`，两个入口都复用它：
+  - `GET /api/rss/subscription/{id}?token=` 单订阅 feed
+  - `GET /api/rss/user/{user_id}?token=` 用户级聚合 feed
+  - 旧路径 `GET /api/downloaders/rss/{id}?token=` 仅作兼容转发，新代码不要使用
+- **窗口语义（重要）**：`days`（默认 60）在 SQL 层截取时间范围；`limit`（默认 100）必须在
+  **过滤之后**于 Python 侧截断。过滤条件（字幕组/关键词/语言/集数/正则）只能在 Python 判定，
+  若把 LIMIT 下推到 SQL，最新的若干集若不匹配过滤条件就会吃掉整个窗口，导致 feed
+  "明明有命中却返回空"（实测出现过）。`tests/test_rss_feed.py` 锁住了这一点。
+- `unique_id = episode-{id}` 必须保持稳定：客户端据此去重，避免同一集重复下载。
+- 暂停语义：`subscriptions.status = 0` 时，单订阅 feed 返回 404（明确失败，避免客户端把空
+  feed 误判为"没有更新"），用户级聚合 feed 跳过该订阅。
+- token 为两级：用户级 `users.rss_token` 与订阅级 `subscriptions.rss_token`，均可用
+  `secrets.token_hex(32)` 重置。
 
 ## 时间处理规范
 

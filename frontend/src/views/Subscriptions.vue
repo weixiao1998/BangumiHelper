@@ -53,6 +53,14 @@
         style="margin-bottom: 16px"
       />
       <p style="color: #909399; font-size: 12px;">如果链接泄露，可以点击"重新生成"按钮获取新链接</p>
+      <el-divider />
+      <div class="pause-row">
+        <div>
+          <div class="pause-title">暂停此订阅</div>
+          <div class="pause-desc">暂停后该订阅不再出现在 RSS 中，过滤规则与配置保留</div>
+        </div>
+        <el-switch :model-value="currentRssSubscription?.status !== 0" @change="handleToggleStatus" />
+      </div>
       <template #footer>
         <el-button @click="rssDialogVisible = false">关闭</el-button>
         <el-button @click="handleRegenerateToken">重新生成</el-button>
@@ -75,7 +83,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { subscriptionApi, downloaderApi } from '@/api'
+import { subscriptionApi, rssApi } from '@/api'
 import FilterDialog from '@/components/FilterDialog.vue'
 
 interface BangumiFilter {
@@ -141,7 +149,7 @@ async function showRssDialog(sub: Subscription) {
   let token = sub.rss_token
   if (!token) {
     try {
-      const response = await downloaderApi.regenerateRssToken(sub.id)
+      const response = await rssApi.regenerateSubscriptionToken(sub.id)
       token = response.data.rss_token
       sub.rss_token = token
     } catch {
@@ -149,7 +157,7 @@ async function showRssDialog(sub: Subscription) {
     }
   }
   const baseUrl = import.meta.env.VITE_API_URL || window.location.origin
-  rssUrl.value = `${baseUrl}/api/downloaders/rss/${sub.id}?token=${token}`
+  rssUrl.value = `${baseUrl}${rssApi.subscriptionFeedUrl(sub.id)}?token=${token}`
   rssDialogVisible.value = true
 }
 
@@ -160,14 +168,29 @@ function showFilterDialog(sub: Subscription) {
   filterDialogVisible.value = true
 }
 
+async function handleToggleStatus(value: boolean | string | number) {
+  const sub = currentRssSubscription.value
+  if (!sub) return
+  const status = value ? 1 : 0
+  try {
+    await subscriptionApi.update(sub.id, { status })
+    sub.status = status
+    const target = subscriptions.value.find(s => s.id === sub.id)
+    if (target) target.status = status
+    ElMessage.success(status === 1 ? '已启用订阅' : '已暂停订阅')
+  } catch {
+    // Error handled by interceptor
+  }
+}
+
 async function handleRegenerateToken() {
   if (!currentRssSubscription.value) return
   try {
-    const response = await downloaderApi.regenerateRssToken(currentRssSubscription.value.id)
+    const response = await rssApi.regenerateSubscriptionToken(currentRssSubscription.value.id)
     const token = response.data.rss_token
     currentRssSubscription.value.rss_token = token
     const baseUrl = import.meta.env.VITE_API_URL || window.location.origin
-    rssUrl.value = `${baseUrl}/api/downloaders/rss/${currentRssSubscription.value.id}?token=${token}`
+    rssUrl.value = `${baseUrl}${rssApi.subscriptionFeedUrl(currentRssSubscription.value.id)}?token=${token}`
     ElMessage.success('已重新生成RSS链接')
   } catch {
     // Error handled by interceptor
@@ -207,6 +230,24 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+.pause-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  .pause-title {
+    font-size: 14px;
+    color: #303133;
+  }
+
+  .pause-desc {
+    margin-top: 2px;
+    font-size: 12px;
+    color: #909399;
+  }
+}
+
 .page-header {
   margin-bottom: 20px;
 

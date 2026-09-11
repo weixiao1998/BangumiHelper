@@ -88,17 +88,17 @@
                       v-if="ep.magnet_url"
                       size="small"
                       type="primary"
-                      @click="handleDownload(ep, 'magnet')"
+                      @click="copyMagnet(ep)"
                     >
-                      磁力
+                      复制磁力
                     </el-button>
                     <el-button
                       v-if="ep.torrent_url"
                       size="small"
                       type="success"
-                      @click="handleDownload(ep, 'torrent')"
+                      @click="openTorrent(ep)"
                     >
-                      种子
+                      下载种子
                     </el-button>
                     <el-button
                       v-if="!ep.magnet_url && !ep.torrent_url"
@@ -121,20 +121,6 @@
 
     <el-dialog v-model="showSubscribeDialog" title="订阅设置" width="560px">
       <el-form :model="subscribeForm" label-width="100px">
-        <el-form-item label="自动下载">
-          <el-switch v-model="subscribeForm.auto_download" />
-        </el-form-item>
-        <template v-if="subscribeForm.auto_download">
-          <el-form-item label="下载器">
-            <el-select v-model="subscribeForm.downloader_id" placeholder="选择下载器" style="width: 100%">
-              <el-option v-for="d in downloaders" :key="d.id" :label="d.name" :value="d.id" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="保存路径">
-            <el-input v-model="subscribeForm.save_path" placeholder="可选" />
-          </el-form-item>
-        </template>
-
         <el-divider content-position="left">过滤条件</el-divider>
 
         <el-form-item label="语言">
@@ -228,7 +214,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
-import { bangumiApi, subscriptionApi, downloaderApi } from '@/api'
+import { bangumiApi, subscriptionApi } from '@/api'
 import { LANGUAGE_OPTION_VALUES, LANGUAGE_KEYWORDS } from '@/constants'
 import FilterDialog from '@/components/FilterDialog.vue'
 
@@ -266,15 +252,6 @@ interface Bangumi {
   episodes: Episode[]
 }
 
-interface Downloader {
-  id: number
-  name: string
-  downloader_type: string
-  host: string
-  port: number
-  is_default: boolean
-}
-
 const router = useRouter()
 const route = useRoute()
 
@@ -285,16 +262,12 @@ const episodes = ref<Episode[]>([])
 const isSubscribed = ref(false)
 const subscriptionId = ref<number | null>(null)
 const subscriptionFilter = ref<BangumiFilter | null>(null)
-const downloaders = ref<Downloader[]>([])
 const showFilterDialog = ref(false)
 
 const showSubscribeDialog = ref(false)
 const subscribing = ref(false)
 const showSubscribeAdvanced = ref(false)
 const subscribeForm = ref({
-  auto_download: false,
-  downloader_id: null as number | null,
-  save_path: '',
   language: [] as string[],
   include_keywords: [] as string[],
   exclude_keywords: [] as string[],
@@ -309,9 +282,6 @@ const languageOptions = LANGUAGE_OPTION_VALUES
 watch(showSubscribeDialog, (val) => {
   if (val) {
     subscribeForm.value = {
-      auto_download: false,
-      downloader_id: null,
-      save_path: '',
       language: [],
       include_keywords: [],
       exclude_keywords: [],
@@ -506,29 +476,11 @@ async function fetchBangumi() {
   }
 }
 
-async function fetchDownloaders() {
-  try {
-    const response = await downloaderApi.getAll()
-    downloaders.value = response.data
-  } catch {
-    // Error handled by interceptor
-  }
-}
-
 async function handleSubscribe() {
   subscribing.value = true
   try {
     const payload: { bangumi_id: number } & Record<string, unknown> = {
       bangumi_id: bangumiId.value,
-      auto_download: subscribeForm.value.auto_download,
-    }
-    if (subscribeForm.value.auto_download) {
-      if (subscribeForm.value.downloader_id) {
-        payload.downloader_id = subscribeForm.value.downloader_id
-      }
-      if (subscribeForm.value.save_path) {
-        payload.save_path = subscribeForm.value.save_path
-      }
     }
     if (subscribeForm.value.language.length > 0) {
       payload.language = subscribeForm.value.language.join(',')
@@ -594,36 +546,22 @@ function copyToClipboard(text: string, label: string = '链接') {
   ElMessage.success(`${label}已复制到剪贴板`)
 }
 
-async function handleDownload(episode: Episode, type: 'magnet' | 'torrent') {
-  const link = type === 'magnet' ? episode.magnet_url : episode.torrent_url
-  
-  if (!link) {
-    ElMessage.warning('该剧集没有对应的下载链接')
+// 下载一律在本地完成：复制磁力交给本机客户端，或下载 .torrent 文件。
+// 服务器不代管下载器（公网实例够不到用户家里的下载器），详见 documents/auto-download-redesign.md
+function copyMagnet(episode: Episode) {
+  if (!episode.magnet_url) {
+    ElMessage.warning('该剧集没有磁力链接')
     return
   }
+  copyToClipboard(episode.magnet_url, '磁力链接')
+}
 
-  if (downloaders.value.length === 0) {
-    copyToClipboard(link, type === 'magnet' ? '磁力链接' : '种子链接')
+function openTorrent(episode: Episode) {
+  if (!episode.torrent_url) {
+    ElMessage.warning('该剧集没有种子链接')
     return
   }
-
-  const defaultDownloader = downloaders.value.find(d => d.is_default) || downloaders.value[0]
-
-  try {
-    const response = await downloaderApi.download({
-      episode_ids: [episode.id],
-      downloader_id: defaultDownloader.id,
-      download_type: type,
-    })
-
-    if (response.data.download_url) {
-      copyToClipboard(response.data.download_url, '下载链接')
-    } else {
-      ElMessage.success(response.data.message || '下载任务已添加')
-    }
-  } catch {
-    // Error handled by interceptor
-  }
+  window.open(episode.torrent_url, '_blank', 'noopener')
 }
 
 async function handleFilterSaved() {
@@ -637,7 +575,6 @@ async function handleFilterDeleted() {
 
 onMounted(() => {
   fetchBangumi()
-  fetchDownloaders()
 })
 </script>
 

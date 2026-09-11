@@ -189,6 +189,10 @@
           <p v-else style="color: #909399; font-size: 12px; margin-bottom: 16px;">
             如果链接泄露，可以点击"重新生成"按钮获取新链接
           </p>
+          <p style="color: #909399; font-size: 12px; margin-bottom: 16px;">
+            该链接包含你全部订阅中「启用」的番剧更新；已暂停的订阅不会出现在其中。
+            feed 默认只输出最近 60 天或 100 条（取先到者）。
+          </p>
           <el-button v-if="!userRssToken" type="primary" :loading="rssTokenLoading" @click="handleGenerateUserRssToken">生成 RSS 链接</el-button>
           <template v-else>
             <el-button @click="handleRegenerateUserRssToken" :loading="rssTokenLoading">重新生成</el-button>

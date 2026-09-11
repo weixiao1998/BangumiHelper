@@ -133,9 +133,6 @@ class BangumiListResponse(BangumiBase):
 
 class SubscriptionBase(BaseModel):
     bangumi_id: int
-    auto_download: bool = False
-    downloader_id: int | None = None
-    save_path: str | None = None
 
 
 class SubscriptionCreate(SubscriptionBase):
@@ -149,11 +146,8 @@ class SubscriptionCreate(SubscriptionBase):
 
 
 class SubscriptionUpdate(BaseModel):
+    # 1=启用，0=暂停（暂停的订阅不输出到 RSS）
     status: int | None = None
-    current_episode: int | None = None
-    auto_download: bool | None = None
-    downloader_id: int | None = None
-    save_path: str | None = None
 
 
 class SubscriptionResponse(SubscriptionBase):
@@ -236,56 +230,6 @@ class GlobalFilterResponse(GlobalFilterBase):
 
     class Config:
         from_attributes = True
-
-
-class DownloaderConfigBase(BaseModel):
-    name: str
-    downloader_type: str
-    host: str
-    port: int
-    username: str | None = None
-    password: str | None = None
-    rpc_url: str | None = None
-    token: str | None = None
-    is_default: bool = False
-
-
-class DownloaderConfigCreate(DownloaderConfigBase):
-    pass
-
-
-class DownloaderConfigUpdate(BaseModel):
-    name: str | None = None
-    downloader_type: str | None = None
-    host: str | None = None
-    port: int | None = None
-    username: str | None = None
-    password: str | None = None
-    rpc_url: str | None = None
-    token: str | None = None
-    is_default: bool | None = None
-
-
-class DownloaderConfigResponse(DownloaderConfigBase):
-    id: int
-    user_id: int
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class DownloadRequest(BaseModel):
-    episode_ids: list[int]
-    downloader_id: int | None = None
-    download_type: str | None = "magnet"
-
-
-class DownloadResponse(BaseModel):
-    success: bool
-    message: str
-    download_url: str | None = None
 
 
 class CalendarResponse(BaseModel):

@@ -4,7 +4,7 @@ AI agent 操作指南。修改代码前必须阅读。
 
 ## 项目
 
-BangumiHelper — 全栈番剧追踪与下载管理应用。聚合蜜柑计划数据源，推送至 qBittorrent/Transmission/Aria2。多用户 + JWT 认证，首个注册用户自动成为管理员。
+BangumiHelper — 全栈番剧追踪与下载管理应用。聚合蜜柑计划数据源，按订阅过滤规则生成 RSS feed 供用户下载器拉取。多用户 + JWT 认证，首个注册用户自动成为管理员。
 
 ## 技术栈
 
@@ -59,16 +59,16 @@ backend/
     │   └── utils.py          # 工具函数 (时间处理等)
     ├── models/models.py      # 所有 SQLAlchemy 模型 (单文件)
     ├── schemas/schemas.py    # 所有 Pydantic schema (单文件)
-    ├── api/endpoints/        # 路由: auth, user, bangumi, subscription, downloader, health, settings, invite_codes
+    ├── api/endpoints/        # 路由: auth, user, bangumi, subscription, rss, health, settings, invite_codes
     └── services/
         ├── data_sources/     # 插件化数据源: base, mikan
-        └── downloaders/      # 插件化下载器: base, qbittorrent, transmission, aria2
+        └── rss_feed.py       # RSS feed 构造 + 时间/条数窗口控制
 
 frontend/src/
 ├── api/index.ts             # Axios 实例, /api baseURL, token 拦截, 401→login
 ├── stores/user.ts           # Pinia (组合式), localStorage token
 ├── router/index.ts          # 认证守卫
-├── views/                   # Calendar, BangumiDetail, Search, Subscriptions, Downloaders, Settings, Login, Register
+├── views/                   # Calendar, BangumiDetail, Search, Subscriptions, Settings, Login, Register
 ├── layouts/MainLayout.vue
 └── @ 别名 → src/
 ```
@@ -79,7 +79,8 @@ frontend/src/
 - **全异步**: async SQLAlchemy + async 路由
 - **配置**: 环境变量 / `.env` (pydantic-settings)
 - **包管理**: 使用 uv 管理依赖，`uv.lock` 锁定版本，应该尽量选用维护活跃的依赖
-- **插件模式**: 数据源/下载器 → 继承抽象基类 → `__init__.py` 注册字典 → 工厂函数获取
+- **插件模式**: 数据源 → 继承抽象基类 → `__init__.py` 注册字典 → 工厂函数获取
+- **下载投放方式**: 只有 RSS（服务端出 feed，用户下载器拉取）。目标形态是公网共享实例，用户下载器在各自 NAT 后，服务器**无法**主动推送，因此不提供"服务器直推下载器"的字段与接口；下载器地址/凭据不应再进入数据模型
 - **单文件模型**: `models/models.py`; 所有 Pydantic schema 在 `schemas/schemas.py`
 - **前端自动导入**: Element Plus 组件/图标无需手动 import
 - **Lint**: Ruff line-length=120, target=py314, 忽略 E501
@@ -92,7 +93,8 @@ frontend/src/
 
 | 主题 | 路径 |
 |------|------|
-| 开发指南（新增数据源/下载器、时间处理规范、Docker 开发模式） | [documents/development.md](documents/development.md) |
+| 开发指南（新增数据源、RSS feed/窗口语义、时间处理规范、Docker 开发模式） | [documents/development.md](documents/development.md) |
+| 订阅/自动下载重构设计（为何只用 RSS、窗口语义、决策记录） | [documents/auto-download-redesign.md](documents/auto-download-redesign.md) |
 | Docker 生产部署、Caddy 配置、数据源刷新 | [documents/deployment.md](documents/deployment.md) |
 | 运维操作（容器内 mysql 操作数据库、换 MIKAN_URL 数据处理等） | [documents/operations.md](documents/operations.md) |
 

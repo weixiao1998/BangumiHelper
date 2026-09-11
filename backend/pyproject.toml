@@ -21,8 +21,6 @@ dependencies = [
     "lxml==6.1.2",
     "feedparser==6.0.14",
     "feedgenerator==2.2.1",
-    "qbittorrent-api==2026.8.1",
-    "transmission-rpc==7.0.12",
     "loguru==0.7.3",
     "alembic==1.19.1",
     "apscheduler==3.11.3",

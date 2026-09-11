@@ -39,8 +39,8 @@
       </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" @click="copyMagnet(row.magnet_url || row.download_url)">复制</el-button>
-          <el-button size="small" type="primary" @click="download(row)">下载</el-button>
+          <el-button size="small" @click="copyMagnet(row.magnet_url || row.torrent_url)">复制磁力</el-button>
+          <el-button v-if="row.torrent_url" size="small" type="primary" @click="openTorrent(row)">下载种子</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -51,13 +51,13 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
-import { bangumiApi, downloaderApi } from '@/api'
+import { bangumiApi } from '@/api'
 
 interface SearchResult {
   title: string
   episode_number: number
-  download_url: string
   magnet_url: string
+  torrent_url: string
   subtitle_group: string
   publish_time: string
 }
@@ -87,22 +87,20 @@ async function handleSearch() {
 }
 
 function copyMagnet(url: string) {
+  if (!url) {
+    ElMessage.warning('该结果没有磁力链接')
+    return
+  }
   navigator.clipboard.writeText(url)
-  ElMessage.success('已复制到剪贴板')
+  ElMessage.success('磁力链接已复制')
 }
 
-async function download(row: SearchResult) {
-  try {
-    const downloadersRes = await downloaderApi.getAll()
-    if (downloadersRes.data.length === 0) {
-      copyMagnet(row.magnet_url || row.download_url)
-      return
-    }
-
-    ElMessage.info('请先订阅番剧后再使用下载功能')
-  } catch {
-    copyMagnet(row.magnet_url || row.download_url)
+function openTorrent(row: SearchResult) {
+  if (!row.torrent_url) {
+    ElMessage.warning('该结果没有种子链接')
+    return
   }
+  window.open(row.torrent_url, '_blank', 'noopener')
 }
 </script>
 
