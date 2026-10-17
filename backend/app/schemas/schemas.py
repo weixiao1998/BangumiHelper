@@ -132,12 +132,65 @@ class BangumiListResponse(BangumiBase):
         from_attributes = True
 
 
+class SubscriptionGroupBrief(BaseModel):
+    id: int
+    name: str
+    status: int
+
+    class Config:
+        from_attributes = True
+
+
+class SubscriptionGroupBase(BaseModel):
+    include_keywords: str | None = None
+    exclude_keywords: str | None = None
+    subtitle_groups: str | None = None
+    language: str | None = None
+    regex_pattern: str | None = None
+    min_episode: int | None = None
+    max_episode: int | None = None
+
+
+class SubscriptionGroupCreate(SubscriptionGroupBase):
+    name: str
+    description: str | None = None
+
+
+class SubscriptionGroupUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    # 1=启用，0=暂停
+    status: int | None = None
+    include_keywords: str | None = None
+    exclude_keywords: str | None = None
+    subtitle_groups: str | None = None
+    language: str | None = None
+    regex_pattern: str | None = None
+    min_episode: int | None = None
+    max_episode: int | None = None
+
+
+class SubscriptionGroupResponse(SubscriptionGroupBase):
+    id: int
+    user_id: int
+    name: str
+    description: str | None = None
+    status: int
+    rss_token: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class SubscriptionBase(BaseModel):
     bangumi_id: int
 
 
 class SubscriptionCreate(SubscriptionBase):
-    # 不传时按是否提供了过滤条件推断：有过滤条件=自定义，无=继承全局默认规则
+    group_id: int
+    # 不传时按是否提供了过滤条件推断：有过滤条件=自定义，无=继承组默认规则
     filter_mode: Literal["inherit", "custom"] | None = None
     include_keywords: str | None = None
     exclude_keywords: str | None = None
@@ -151,18 +204,21 @@ class SubscriptionCreate(SubscriptionBase):
 class SubscriptionUpdate(BaseModel):
     # 1=启用，0=暂停（暂停的订阅不输出到 RSS）
     status: int | None = None
-    # 过滤规则来源：inherit=全局默认规则，custom=订阅自身规则（互斥，不叠加）
+    # 移动到其他订阅组
+    group_id: int | None = None
+    # 过滤规则来源：inherit=组默认规则，custom=订阅自身规则（互斥，不叠加）
     filter_mode: Literal["inherit", "custom"] | None = None
 
 
 class SubscriptionResponse(SubscriptionBase):
     id: int
     user_id: int
+    group_id: int
     status: int
     filter_mode: str
-    rss_token: str | None = None
     created_at: datetime
     updated_at: datetime
+    group: SubscriptionGroupBrief
     bangumi: BangumiResponse
     filter: BangumiFilterResponse | None = None
 
@@ -174,10 +230,10 @@ class SubscriptionFilteringResponse(BaseModel):
     """某订阅当前生效的过滤情况，供详情页直接渲染（避免前端重复实现过滤逻辑）。"""
 
     filter_mode: str
-    # global / custom / none
+    # group / custom / none
     active_source: str
-    # 用户是否已设置全局默认规则（前端用于解释「继承」的实际效果）
-    global_filter_available: bool = False
+    # 所属订阅组是否已设置默认规则（前端用于解释「继承」的实际效果）
+    group_filter_available: bool = False
     # 生效规则允许的字幕组（原始逗号分隔串），用于侧栏「已订阅」标记
     active_subtitle_groups: str | None = None
     matched_episode_ids: list[int] = []
@@ -212,40 +268,6 @@ class BangumiFilterResponse(BangumiFilterBase):
     user_id: int
     subscription_id: int
     bangumi_name: str
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class GlobalFilterBase(BaseModel):
-    include_keywords: str | None = None
-    exclude_keywords: str | None = None
-    subtitle_groups: str | None = None
-    language: str | None = None
-    regex_pattern: str | None = None
-    min_episode: int | None = None
-    max_episode: int | None = None
-
-
-class GlobalFilterCreate(GlobalFilterBase):
-    pass
-
-
-class GlobalFilterUpdate(BaseModel):
-    include_keywords: str | None = None
-    exclude_keywords: str | None = None
-    subtitle_groups: str | None = None
-    language: str | None = None
-    regex_pattern: str | None = None
-    min_episode: int | None = None
-    max_episode: int | None = None
-
-
-class GlobalFilterResponse(GlobalFilterBase):
-    id: int
-    user_id: int
     created_at: datetime
     updated_at: datetime
 

@@ -50,9 +50,10 @@ export const bangumiApi = {
 }
 
 export const subscriptionApi = {
-  getAll: () => api.get('/subscriptions'),
+  getAll: (params?: { group_id?: number; bangumi_id?: number }) => api.get('/subscriptions', { params }),
   create: (data: {
     bangumi_id: number
+    group_id: number
     filter_mode?: 'inherit' | 'custom'
     include_keywords?: string
     exclude_keywords?: string
@@ -68,16 +69,25 @@ export const subscriptionApi = {
   // 当前生效的过滤规则来源与命中剧集（判定只由后端实现，前端不再复制一套）
   filtering: (id: number) => api.get(`/subscriptions/${id}/filtering`),
   getFilter: (id: number) => api.get(`/subscriptions/${id}/filter`),
-  createFilter: (id: number, data: Record<string, unknown>) => api.post(`/subscriptions/${id}/filter`, data),
-  updateFilter: (id: number, data: Record<string, unknown>) => api.put(`/subscriptions/${id}/filter`, data),
+  createFilter: (id: number, data: object) => api.post(`/subscriptions/${id}/filter`, data),
+  updateFilter: (id: number, data: object) => api.put(`/subscriptions/${id}/filter`, data),
   deleteFilter: (id: number) => api.delete(`/subscriptions/${id}/filter`),
 }
 
-// 投放方式只有 RSS：服务器出 feed，用户自己的下载器按间隔拉取（详见 documents/auto-download-redesign.md）
+export const groupApi = {
+  getAll: () => api.get('/subscription-groups'),
+  get: (id: number) => api.get(`/subscription-groups/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/subscription-groups', data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/subscription-groups/${id}`, data),
+  delete: (id: number, deleteSubscriptions = false) =>
+    api.delete(`/subscription-groups/${id}`, { params: { delete_subscriptions: deleteSubscriptions } }),
+}
+
+// 投放方式只有 RSS：组 feed（主） + 用户级全部订阅 feed（保留）
 export const rssApi = {
-  subscriptionFeedUrl: (subscriptionId: number) => `/api/rss/subscription/${subscriptionId}`,
-  regenerateSubscriptionToken: (subscriptionId: number) =>
-    api.post(`/rss/subscription/${subscriptionId}/regenerate`),
+  groupFeedUrl: (groupId: number) => `/api/rss/group/${groupId}`,
+  regenerateGroupToken: (groupId: number) => api.post(`/rss/group/${groupId}/regenerate`),
+  userFeedUrl: (userId: number) => `/api/rss/user/${userId}`,
 }
 
 export const authApi = {
@@ -96,10 +106,6 @@ export const userApi = {
   getMe: () => api.get('/users/me'),
   changePassword: (oldPassword: string, newPassword: string) =>
     api.put('/users/me/password', null, { params: { old_password: oldPassword, new_password: newPassword } }),
-  getGlobalFilter: () => api.get('/users/me/global-filter'),
-  createGlobalFilter: (data: Record<string, unknown>) => api.post('/users/me/global-filter', data),
-  updateGlobalFilter: (data: Record<string, unknown>) => api.put('/users/me/global-filter', data),
-  deleteGlobalFilter: () => api.delete('/users/me/global-filter'),
   getRssToken: () => api.get('/users/me/rss-token'),
   regenerateRssToken: () => api.post('/users/me/rss-token'),
 }

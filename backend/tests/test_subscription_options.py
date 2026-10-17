@@ -9,6 +9,7 @@ Subscription.bangumi.episodes，响应序列化时访问未加载的 bangumi.sea
 """
 
 from app.api.endpoints.subscription import SUBSCRIPTION_BASE_OPTIONS
+from app.schemas import SubscriptionResponse
 
 
 def _option_paths() -> set[str]:
@@ -26,3 +27,11 @@ def test_subscription_options_preload_response_relations() -> None:
 
     # SubscriptionResponse.filter
     assert any("Subscription.filter" in path for path in paths), "订阅查询未预加载 Subscription.filter"
+
+    # SubscriptionResponse.group（单订阅 RSS 已删除，但组信息仍随订阅返回）
+    assert any("Subscription.group" in path for path in paths), "订阅查询未预加载 Subscription.group"
+
+
+def test_subscription_response_no_longer_exposes_rss_token() -> None:
+    """单订阅 RSS 已删除，订阅响应不应再包含 rss_token。"""
+    assert "rss_token" not in SubscriptionResponse.model_fields

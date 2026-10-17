@@ -37,112 +37,6 @@
         </el-card>
       </el-tab-pane>
 
-      <el-tab-pane label="全局过滤" name="global-filter">
-        <el-card>
-          <el-form :model="globalFilterForm" label-width="100px" style="max-width: 500px">
-            <el-form-item label="包含关键词">
-              <el-select
-                v-model="globalFilterForm.include_keywords"
-                multiple
-                filterable
-                allow-create
-                default-first-option
-                placeholder="输入关键词后回车添加"
-                popper-class="hide-select-dropdown"
-                style="width: 100%"
-              />
-            </el-form-item>
-
-            <el-form-item label="排除关键词">
-              <el-select
-                v-model="globalFilterForm.exclude_keywords"
-                multiple
-                filterable
-                allow-create
-                default-first-option
-                placeholder="输入关键词后回车添加"
-                popper-class="hide-select-dropdown"
-                style="width: 100%"
-              />
-            </el-form-item>
-
-            <el-form-item label="字幕组">
-              <el-select
-                v-model="globalFilterForm.subtitle_groups"
-                multiple
-                filterable
-                allow-create
-                default-first-option
-                placeholder="输入字幕组名称后回车添加"
-                popper-class="hide-select-dropdown"
-                style="width: 100%"
-              />
-            </el-form-item>
-
-            <el-form-item label="语言">
-              <el-select
-                v-model="globalFilterForm.language"
-                multiple
-                filterable
-                allow-create
-                default-first-option
-                placeholder="选择或输入语言"
-                style="width: 100%"
-              >
-                <el-option v-for="lang in languageOptions" :key="lang" :label="lang" :value="lang" />
-              </el-select>
-            </el-form-item>
-
-            <el-form-item label="集数范围">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <el-input-number v-model="globalFilterForm.min_episode" :min="0" :max="9999" placeholder="最小" controls-position="right" />
-                <span>—</span>
-                <el-input-number v-model="globalFilterForm.max_episode" :min="0" :max="9999" placeholder="最大" controls-position="right" />
-              </div>
-            </el-form-item>
-
-            <el-form-item>
-              <el-button link type="primary" @click="showAdvanced = !showAdvanced">
-                {{ showAdvanced ? '收起高级选项' : '展开高级选项' }}
-              </el-button>
-            </el-form-item>
-
-            <template v-if="showAdvanced">
-              <el-form-item label="正则匹配">
-                <el-input v-model="globalFilterForm.regex_pattern" placeholder="正则表达式匹配标题" />
-              </el-form-item>
-            </template>
-
-            <el-form-item>
-              <el-button v-if="hasGlobalFilter" type="primary" :loading="filterLoading" @click="handleUpdateGlobalFilter">更新过滤器</el-button>
-              <el-button v-else type="primary" :loading="filterLoading" @click="handleCreateGlobalFilter">创建过滤器</el-button>
-              <el-button v-if="hasGlobalFilter" type="danger" :loading="filterLoading" @click="handleDeleteGlobalFilter">删除过滤器</el-button>
-            </el-form-item>
-          </el-form>
-
-          <el-alert
-            v-if="hasGlobalFilter"
-            title="全局过滤器已启用"
-            type="success"
-            :closable="false"
-            style="margin-top: 16px"
-          >
-            这是您的<b>默认过滤规则</b>：订阅在「继承全局」模式下使用它；
-            对订阅设置「自定义规则」后，该订阅改用自身规则，此规则<b>不再参与</b>判定。
-          </el-alert>
-          <el-alert
-            v-else
-            title="全局过滤器未设置"
-            type="info"
-            :closable="false"
-            style="margin-top: 16px"
-          >
-            设置后作为所有「继承全局」订阅的默认过滤规则；也可以为单个订阅设置自定义规则
-            （两者互斥、不叠加）。未设置且订阅为继承模式时，等于不按条件过滤。
-          </el-alert>
-        </el-card>
-      </el-tab-pane>
-
       <el-tab-pane v-if="userStore.isAdmin" label="数据管理" name="data">
         <el-card>
           <el-form label-width="100px">
@@ -189,8 +83,8 @@
 
       <el-tab-pane label="RSS 订阅" name="rss">
         <el-card>
-          <p style="margin-bottom: 16px; color: #606266;">
-            将以下链接添加到您的 RSS 阅读器或下载工具中，即可订阅您所有番剧的更新：
+          <p style="margin-bottom: 12px; color: #606266;">
+            这是用户级「全部订阅」聚合 RSS：包含所有启用订阅组中的启用订阅。
           </p>
           <el-input
             v-model="userRssUrl"
@@ -206,14 +100,18 @@
             如果链接泄露，可以点击"重新生成"按钮获取新链接
           </p>
           <p style="color: #909399; font-size: 12px; margin-bottom: 16px;">
-            该链接包含你全部订阅中「启用」的番剧更新；已暂停的订阅不会出现在其中。
+            暂停的订阅组与暂停的订阅不会出现在其中；同一番剧在多个组时，同一集会去重。
             feed 默认只输出最近 60 天或 100 条（取先到者）。
+          </p>
+          <p style="color: #909399; font-size: 12px; margin-bottom: 16px;">
+            想按年份/主题分开投放？请到「我的订阅」为每个订阅组单独生成组 RSS。
           </p>
           <el-button v-if="!userRssToken" type="primary" :loading="rssTokenLoading" @click="handleGenerateUserRssToken">生成 RSS 链接</el-button>
           <template v-else>
             <el-button @click="handleRegenerateUserRssToken" :loading="rssTokenLoading">重新生成</el-button>
             <el-button type="primary" @click="copyUserRssUrl">复制链接</el-button>
           </template>
+          <el-button link type="primary" style="margin-left: 8px;" @click="goToSubscriptions">去管理订阅组</el-button>
         </el-card>
       </el-tab-pane>
     </el-tabs>
@@ -222,31 +120,19 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { userApi, bangumiApi, settingsApi } from '@/api'
-import { LANGUAGE_OPTION_VALUES } from '@/constants'
+import { userApi, bangumiApi, settingsApi, rssApi } from '@/api'
 
-interface GlobalFilterData {
-  include_keywords: string | null
-  exclude_keywords: string | null
-  subtitle_groups: string | null
-  language: string | null
-  regex_pattern: string | null
-  min_episode: number | null
-  max_episode: number | null
-}
-
+const router = useRouter()
 const userStore = useUserStore()
 const activeTab = ref('profile')
 const dataSource = ref('mikan')
 const refreshLoading = ref(false)
 const passwordLoading = ref(false)
-const filterLoading = ref(false)
 const rssTokenLoading = ref(false)
 const passwordFormRef = ref<FormInstance>()
-const hasGlobalFilter = ref(false)
-const showAdvanced = ref(false)
 const userRssToken = ref('')
 const userRssUrl = ref('')
 const systemLoading = ref(false)
@@ -263,18 +149,6 @@ const passwordForm = reactive({
   newPassword: '',
   confirmPassword: '',
 })
-
-const globalFilterForm = reactive({
-  include_keywords: [] as string[],
-  exclude_keywords: [] as string[],
-  subtitle_groups: [] as string[],
-  language: [] as string[],
-  regex_pattern: '',
-  min_episode: undefined as number | undefined,
-  max_episode: undefined as number | undefined,
-})
-
-const languageOptions = LANGUAGE_OPTION_VALUES
 
 const validateConfirmPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (value !== passwordForm.newPassword) {
@@ -294,53 +168,6 @@ const passwordRules: FormRules = {
     { required: true, message: '请确认新密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' },
   ],
-}
-
-function parseCommaList(val: string | null): string[] {
-  if (!val) return []
-  return val.split(',').map(s => s.trim()).filter(Boolean)
-}
-
-function buildFilterPayload(): Record<string, unknown> {
-  // 始终提交所有字段: 清空(取消选择)的字段以 null 提交, 后端才会将其重置
-  return {
-    include_keywords: globalFilterForm.include_keywords.join(',') || null,
-    exclude_keywords: globalFilterForm.exclude_keywords.join(',') || null,
-    subtitle_groups: globalFilterForm.subtitle_groups.join(',') || null,
-    language: globalFilterForm.language.join(',') || null,
-    regex_pattern: globalFilterForm.regex_pattern || null,
-    min_episode: globalFilterForm.min_episode ?? null,
-    max_episode: globalFilterForm.max_episode ?? null,
-  }
-}
-
-function loadFilterForm(filter: GlobalFilterData) {
-  globalFilterForm.include_keywords = parseCommaList(filter.include_keywords)
-  globalFilterForm.exclude_keywords = parseCommaList(filter.exclude_keywords)
-  globalFilterForm.subtitle_groups = parseCommaList(filter.subtitle_groups)
-  globalFilterForm.language = parseCommaList(filter.language)
-  globalFilterForm.regex_pattern = filter.regex_pattern || ''
-  globalFilterForm.min_episode = filter.min_episode ?? undefined
-  globalFilterForm.max_episode = filter.max_episode ?? undefined
-  showAdvanced.value = !!filter.regex_pattern
-}
-
-async function fetchGlobalFilter() {
-  const response = await userApi.getGlobalFilter()
-  if (!response.data) {
-    hasGlobalFilter.value = false
-    globalFilterForm.include_keywords = []
-    globalFilterForm.exclude_keywords = []
-    globalFilterForm.subtitle_groups = []
-    globalFilterForm.language = []
-    globalFilterForm.regex_pattern = ''
-    globalFilterForm.min_episode = undefined
-    globalFilterForm.max_episode = undefined
-    showAdvanced.value = false
-    return
-  }
-  loadFilterForm(response.data)
-  hasGlobalFilter.value = true
 }
 
 async function handleChangePassword() {
@@ -367,58 +194,15 @@ async function handleRefresh() {
   }
 }
 
-async function handleCreateGlobalFilter() {
-  filterLoading.value = true
-  try {
-    await userApi.createGlobalFilter(buildFilterPayload())
-    ElMessage.success('全局过滤器已创建')
-    await fetchGlobalFilter()
-  } catch {
-    // Error handled by interceptor
-  } finally {
-    filterLoading.value = false
-  }
-}
-
-async function handleUpdateGlobalFilter() {
-  filterLoading.value = true
-  try {
-    await userApi.updateGlobalFilter(buildFilterPayload())
-    ElMessage.success('全局过滤器已更新')
-    await fetchGlobalFilter()
-  } catch {
-    // Error handled by interceptor
-  } finally {
-    filterLoading.value = false
-  }
-}
-
-async function handleDeleteGlobalFilter() {
-  filterLoading.value = true
-  try {
-    await userApi.deleteGlobalFilter()
-    ElMessage.success('全局过滤器已删除')
-    hasGlobalFilter.value = false
-    globalFilterForm.include_keywords = []
-    globalFilterForm.exclude_keywords = []
-    globalFilterForm.subtitle_groups = []
-    globalFilterForm.language = []
-    globalFilterForm.regex_pattern = ''
-    globalFilterForm.min_episode = undefined
-    globalFilterForm.max_episode = undefined
-    showAdvanced.value = false
-  } catch {
-    // Error handled by interceptor
-  } finally {
-    filterLoading.value = false
-  }
-}
-
 function buildUserRssUrl(token: string) {
-  const baseUrl = window.location.origin
+  const baseUrl = import.meta.env.VITE_API_URL || window.location.origin
   const userId = userStore.user?.id ?? 0
   userRssToken.value = token
-  userRssUrl.value = `${baseUrl}/api/rss/user/${userId}?token=${token}`
+  userRssUrl.value = `${baseUrl}${rssApi.userFeedUrl(userId)}?token=${token}`
+}
+
+function goToSubscriptions() {
+  router.push('/subscriptions')
 }
 
 async function fetchUserRssToken() {
@@ -504,7 +288,6 @@ async function handleUpdateSystem() {
 }
 
 onMounted(() => {
-  fetchGlobalFilter()
   fetchUserRssToken()
 })
 

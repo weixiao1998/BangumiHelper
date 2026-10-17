@@ -3,6 +3,10 @@
 > 状态：**决策已定，P1+P2 已实施**（实施记录见文末「六」；P3/P4 待做）
 > 前提：**目标形态 = 公网共享实例**（多用户注册，各自的下载器在自家 NAT 后面）
 > 结论：**投递只有 RSS**，服务器直推能力**整体删除**。
+>
+> **后续变更（014）**：RSS 改为「组 feed + 用户级全部 feed」两类；单订阅 feed、
+> `subscriptions.rss_token`、旧 `/api/downloaders/rss/...` 路径均已删除。当前语义见
+> [订阅组设计](subscription-groups.md)。
 
 ## 〇、决策日志
 
@@ -14,7 +18,7 @@
 | 暂停订阅 | 启用 `status` 语义（1 启用 / 0 暂停） | 沿用 v1 结论 |
 | 启用基线（补不补历史） | **改由 feed 窗口控制**（服务端） | v1 的"每个订阅单独选"作废：RSS 形态下载由客户端发起，"补历史"本质是"feed 里有没有旧条目" |
 | 服务器直推下载器 | **彻底删除** | 已移除下载器管理页、直推接口/服务、`downloader_configs` 与 `download_history` 表、订阅上的直推字段与前端依赖 |
-| RSS token 体系 | **保留两级** | 用户级 `users.rss_token` + 订阅级 `subscriptions.rss_token`，可单独重置某个订阅 |
+| RSS token 体系 | **保留两级** | 用户级 `users.rss_token` + 组级 `subscription_groups.rss_token`（014 起；原订阅级字段已删除） |
 | feed 窗口默认值 | **最近 60 天或 100 条，取先到者** | `?days=` / `?limit=` 可覆盖，`0` 表示不限 |
 | 本轮范围 | **P1 + P2** | 数据清理 + RSS 质量；P3（订阅设置弹窗合并、教程引导）与 P4（手动下载交互细化）待做 |
 
@@ -90,7 +94,8 @@ RSS 形态下服务器**无法知道**用户是否真的下载了（投递由客
 
 **`downloader_configs`**：取决于待确认 1。若保留直推，则拆出 `category`（qBittorrent 分类 / Transmission 标签）与 `save_path`（该下载器默认目录），`token` 收窄为仅 aria2 RPC 密钥。
 
-**`BangumiFilter` / `GlobalFilter`**：不变，`filter_episodes()` 继续作为唯一判定入口。
+**`BangumiFilter` / `SubscriptionGroup`**（014 起）：组默认规则在 `SubscriptionGroup` 上，订阅仍用
+`BangumiFilter` 存自身规则；`filter_episodes()` 继续作为唯一判定入口。
 
 ### 3.3 RSS 一等公民化（服务端）
 
