@@ -1,20 +1,19 @@
 """过滤规则的统一判定。
 
-设计（详见 documents/filter-redesign.md）：一个订阅在任一时刻只有**一份**生效规则：
+设计（详见 documents/subscription-groups.md）：一个订阅在任一时刻只有**一份**生效规则：
 
-- `filter_mode = inherit`（默认）→ 使用用户的「全局默认规则」（GlobalFilter）
+- `filter_mode = inherit`（默认）→ 使用所属订阅组的组默认规则（SubscriptionGroup）
 - `filter_mode = custom`         → 使用订阅自身的规则（BangumiFilter）
 
-两者互斥、不叠加。此前是「全局 AND 订阅」的硬叠加，既无法为单个订阅开例外，
-也让"最终会不会下载"难以预测。
+两者互斥、不叠加，也不做字段级混搭。空规则（没有任何条件）等同于不过滤。
 """
 
 import re
 
 from app.core.constants import LANGUAGE_KEYWORDS, FilterMode
-from app.models.models import BangumiFilter, Episode, GlobalFilter
+from app.models.models import BangumiFilter, Episode, SubscriptionGroup
 
-FilterRule = BangumiFilter | GlobalFilter
+FilterRule = BangumiFilter | SubscriptionGroup
 
 
 def has_conditions(rule: FilterRule | None) -> bool:
@@ -40,27 +39,28 @@ def has_conditions(rule: FilterRule | None) -> bool:
 
 def select_filter(
     sub_filter: BangumiFilter | None,
-    global_filter: GlobalFilter | None,
+    group_filter: SubscriptionGroup | None,
     mode: str | None,
 ) -> FilterRule | None:
     """按订阅的 filter_mode 选出唯一生效的规则；返回 None 表示不过滤。
 
+    inherit 整份使用组默认规则，custom 整份使用订阅自身规则；两者互斥、不叠加。
     所选规则若为空规则，同样返回 None（空规则 = 不过滤）。
     """
-    rule = sub_filter if mode == FilterMode.CUSTOM else global_filter
+    rule = sub_filter if mode == FilterMode.CUSTOM else group_filter
     return rule if has_conditions(rule) else None
 
 
 def describe_source(
     sub_filter: BangumiFilter | None,
-    global_filter: GlobalFilter | None,
+    group_filter: SubscriptionGroup | None,
     mode: str | None,
 ) -> str:
-    """返回生效规则来源，供前端展示：global / custom / none。"""
-    rule = select_filter(sub_filter, global_filter, mode)
+    """返回生效规则来源，供前端展示：group / custom / none。"""
+    rule = select_filter(sub_filter, group_filter, mode)
     if rule is None:
         return "none"
-    return "custom" if mode == FilterMode.CUSTOM else "global"
+    return "custom" if mode == FilterMode.CUSTOM else "group"
 
 
 def _match_episode_with_filter(episode: Episode, filter_obj: FilterRule | None) -> bool:
@@ -88,7 +88,7 @@ def _match_episode_with_filter(episode: Episode, filter_obj: FilterRule | None) 
             if allowed_groups:
                 return False
 
-    # BangumiFilter 与 GlobalFilter 字段已对齐（都含 language），直接取属性即可
+    # BangumiFilter 与 SubscriptionGroup 的规则字段已对齐（都含 language），直接取属性即可
     if filter_obj.language:
         title = episode.title.lower()
         languages = [lang.strip() for lang in filter_obj.language.split(",") if lang.strip()]

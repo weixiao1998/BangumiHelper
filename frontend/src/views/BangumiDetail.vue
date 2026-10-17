@@ -23,18 +23,37 @@
                 <el-tag>更新: {{ bangumi.update_time }}</el-tag>
                 <el-tag type="info">{{ bangumi.data_source }}</el-tag>
                 <el-tag v-if="bangumi.seasons && bangumi.seasons.length" type="info">{{ formatSeasons(bangumi.seasons) }}</el-tag>
-                <el-tag v-if="activeSource !== 'none'" type="warning">
-                  {{ activeSource === 'global' ? '全局过滤' : '自定义过滤' }}
-                </el-tag>
+                <el-tag v-if="activeSource !== 'none'" type="warning">{{ sourceLabel }}</el-tag>
+                <el-tag v-if="isSubscribed" type="success">已订阅 {{ bangumiSubscriptions.length }} 组</el-tag>
+                <el-tag v-if="hasPausedSubscription" type="info">部分订阅已暂停</el-tag>
               </p>
             </div>
             <div class="detail-header-actions">
               <template v-if="!isSubscribed">
-                <el-button type="primary" @click="showSettingsDialog = true">订阅</el-button>
+                <el-button type="primary" @click="openCreateDialog">订阅</el-button>
               </template>
               <template v-else>
-                <el-button type="danger" @click="handleUnsubscribe">取消订阅</el-button>
-                <el-button @click="showSettingsDialog = true">订阅设置</el-button>
+                <el-dropdown @command="handleSubscriptionCommand">
+                  <el-button>订阅设置</el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item
+                        v-for="sub in bangumiSubscriptions"
+                        :key="sub.id"
+                        :command="{ type: 'edit', sub }"
+                      >
+                        {{ sub.group.name }} · {{ subscriptionLabel(sub) }}
+                      </el-dropdown-item>
+                      <el-dropdown-item
+                        divided
+                        :disabled="availableGroups.length === 0"
+                        :command="{ type: 'create' }"
+                      >
+                        订阅到其他组
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </template>
               <el-button plain :loading="refreshing" @click="handleRefreshEpisodes">
                 刷新剧集
@@ -121,16 +140,17 @@
       </div>
     </template>
 
-    <!-- 新建订阅与编辑订阅设置共用同一个弹窗（subscriptionId 为空即新建） -->
     <SubscriptionSettingsDialog
       v-model="showSettingsDialog"
       :bangumi-id="bangumiId"
       :bangumi-name="bangumi?.name"
-      :subscription-id="subscriptionId"
-      :status="subscriptionStatus"
-      :filter-data="subscriptionFilter"
-      :filter-mode="isSubscribed ? subscriptionMode : undefined"
-      :has-global-filter="globalFilterAvailable"
+      :subscription-id="settingsTarget?.id"
+      :group-id="settingsTarget?.group_id ?? settingsCreateGroupId"
+      :groups="groups"
+      :occupied-group-ids="bangumiSubscriptions.map(sub => sub.group_id)"
+      :status="settingsTarget?.status"
+      :filter-data="settingsTarget?.filter || null"
+      :filter-mode="settingsTarget?.filter_mode"
       :subtitle-group-options="subtitleGroupOptions"
       @saved="handleSettingsSaved"
     />
@@ -143,20 +163,12 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
-import { bangumiApi, subscriptionApi } from '@/api'
+import { bangumiApi, groupApi, subscriptionApi } from '@/api'
 import SubscriptionSettingsDialog from '@/components/SubscriptionSettingsDialog.vue'
+import type { Subscription, SubscriptionGroup } from '@/types'
+import { ruleHasConditions } from '@/utils/filter'
 
 dayjs.extend(utc)
-
-interface BangumiFilter {
-  include_keywords: string | null
-  exclude_keywords: string | null
-  subtitle_groups: string | null
-  language: string | null
-  regex_pattern: string | null
-  min_episode: number | null
-  max_episode: number | null
-}
 
 interface Episode {
   id: number
@@ -180,6 +192,13 @@ interface Bangumi {
   episodes: Episode[]
 }
 
+type ActiveSource = 'group' | 'custom' | 'mixed' | 'none'
+
+interface SubscriptionCommand {
+  type: 'edit' | 'create'
+  sub?: Subscription
+}
+
 const router = useRouter()
 const route = useRoute()
 
@@ -187,19 +206,34 @@ const loading = ref(true)
 const refreshing = ref(false)
 const bangumi = ref<Bangumi | null>(null)
 const episodes = ref<Episode[]>([])
-const isSubscribed = ref(false)
-const subscriptionId = ref<number | null>(null)
-const subscriptionFilter = ref<BangumiFilter | null>(null)
-const subscriptionMode = ref<'inherit' | 'custom'>('inherit')
-const subscriptionStatus = ref(1)
-const activeSource = ref<'global' | 'custom' | 'none'>('none')
-const globalFilterAvailable = ref(false)
+const groups = ref<SubscriptionGroup[]>([])
+const bangumiSubscriptions = ref<Subscription[]>([])
+
+const activeSource = ref<ActiveSource>('none')
 const activeSubtitleGroups = ref('')
 const matchedEpisodeIds = ref<Set<number>>(new Set())
+
 const showSettingsDialog = ref(false)
+const settingsTarget = ref<Subscription | null>(null)
+const settingsCreateGroupId = ref<number | null>(null)
 
 const overflowStates = ref<Record<number, boolean>>({})
 const titleElements = ref<Map<number, HTMLElement>>(new Map())
+
+const isSubscribed = computed(() => bangumiSubscriptions.value.length > 0)
+const hasPausedSubscription = computed(() =>
+  bangumiSubscriptions.value.some(sub => sub.status === 0 || sub.group.status === 0),
+)
+const availableGroups = computed(() => {
+  const occupied = new Set(bangumiSubscriptions.value.map(sub => sub.group_id))
+  return groups.value.filter(group => !occupied.has(group.id))
+})
+const sourceLabel = computed(() => {
+  if (activeSource.value === 'group') return '组规则'
+  if (activeSource.value === 'custom') return '自定义过滤'
+  if (activeSource.value === 'mixed') return '多组过滤'
+  return ''
+})
 
 function registerTitleRef(el: unknown, episodeId: number) {
   if (el && el instanceof HTMLElement) {
@@ -292,35 +326,34 @@ const subtitleGroupOptions = computed(() => {
 })
 
 function isGroupSubscribed(groupName: string): boolean {
-  // 生效规则的字幕组由后端给出（可能是全局规则，也可能是订阅自己的规则）
+  // 生效规则的字幕组由后端给出（可能是组规则，也可能是订阅自己的规则）
   if (!activeSubtitleGroups.value) return false
   const allowed = activeSubtitleGroups.value.split(',').map(s => s.trim()).filter(Boolean)
   return allowed.some(a => a.toLowerCase() && groupName.toLowerCase().includes(a.toLowerCase()))
 }
 
+function subscriptionLabel(sub: Subscription): string {
+  if (sub.group.status === 0) return '组已暂停'
+  if (sub.status === 0) return '已暂停'
+  if (sub.filter_mode === 'custom') {
+    return ruleHasConditions(sub.filter) ? '自定义过滤' : '不过滤'
+  }
+  const group = groups.value.find(item => item.id === sub.group_id)
+  return ruleHasConditions(group) ? '组规则' : '不过滤'
+}
+
 async function fetchBangumi() {
   loading.value = true
   try {
-    const response = await bangumiApi.getBangumi(bangumiId.value)
-    bangumi.value = response.data
-    episodes.value = response.data.episodes || []
-
-    const subResponse = await subscriptionApi.getAll()
-    const sub = subResponse.data.find(
-      (s: { id: number; bangumi: { id: number }; filter?: BangumiFilter | null }) => s.bangumi.id === bangumiId.value
-    )
-    if (sub) {
-      isSubscribed.value = true
-      subscriptionId.value = sub.id
-      subscriptionFilter.value = sub.filter || null
-      subscriptionMode.value = sub.filter_mode || 'inherit'
-      subscriptionStatus.value = sub.status ?? 1
-    } else {
-      isSubscribed.value = false
-      subscriptionId.value = null
-      subscriptionFilter.value = null
-      subscriptionMode.value = 'inherit'
-    }
+    const [bangumiResponse, groupsResponse, subscriptionsResponse] = await Promise.all([
+      bangumiApi.getBangumi(bangumiId.value),
+      groupApi.getAll(),
+      subscriptionApi.getAll({ bangumi_id: bangumiId.value }),
+    ])
+    bangumi.value = bangumiResponse.data
+    episodes.value = bangumiResponse.data.episodes || []
+    groups.value = groupsResponse.data
+    bangumiSubscriptions.value = subscriptionsResponse.data
     await fetchFiltering()
   } catch {
     // Error handled by interceptor
@@ -331,22 +364,84 @@ async function fetchBangumi() {
   }
 }
 
-async function handleUnsubscribe() {
-  if (!subscriptionId.value) return
-  try {
-    await subscriptionApi.delete(subscriptionId.value)
-    ElMessage.success('取消订阅成功')
-    isSubscribed.value = false
-    subscriptionId.value = null
-    subscriptionFilter.value = null
-    subscriptionMode.value = 'inherit'
-    subscriptionStatus.value = 1
+async function fetchFiltering() {
+  const activeSubscriptions = bangumiSubscriptions.value.filter(
+    sub => sub.status === 1 && sub.group.status === 1,
+  )
+  if (!activeSubscriptions.length) {
     activeSource.value = 'none'
     activeSubtitleGroups.value = ''
     matchedEpisodeIds.value = new Set()
+    return
+  }
+
+  try {
+    const responses = await Promise.all(
+      activeSubscriptions.map(sub => subscriptionApi.filtering(sub.id)),
+    )
+    const sources = new Set<string>(
+      responses.map(response => response.data.active_source as string),
+    )
+    // 任一启用订阅不过滤 → 全集都会被下载，不做灰显
+    if (sources.has('none')) {
+      activeSource.value = 'none'
+      activeSubtitleGroups.value = ''
+      matchedEpisodeIds.value = new Set()
+      return
+    }
+
+    const matched = new Set<number>()
+    const subtitleGroups = new Set<string>()
+    for (const response of responses) {
+      for (const id of response.data.matched_episode_ids || []) {
+        matched.add(id)
+      }
+      const value = response.data.active_subtitle_groups as string | null
+      if (value) {
+        value
+          .split(',')
+          .map(item => item.trim())
+          .filter(Boolean)
+          .forEach(item => subtitleGroups.add(item))
+      }
+    }
+
+    matchedEpisodeIds.value = matched
+    activeSubtitleGroups.value = [...subtitleGroups].join(',')
+    const distinctSources = [...new Set(responses.map(response => response.data.active_source as string))]
+    activeSource.value = distinctSources.length === 1
+      ? (distinctSources[0] as ActiveSource)
+      : 'mixed'
   } catch {
     // Error handled by interceptor
   }
+}
+
+function openCreateDialog() {
+  if (!groups.value.length) {
+    ElMessage.warning('请先在「我的订阅」创建订阅组')
+    return
+  }
+  settingsTarget.value = null
+  settingsCreateGroupId.value = availableGroups.value[0]?.id ?? groups.value[0]?.id ?? null
+  showSettingsDialog.value = true
+}
+
+function openEditDialog(sub: Subscription) {
+  settingsTarget.value = sub
+  showSettingsDialog.value = true
+}
+
+function handleSubscriptionCommand(command: SubscriptionCommand) {
+  if (command.type === 'create') {
+    openCreateDialog()
+    return
+  }
+  if (command.sub) openEditDialog(command.sub)
+}
+
+async function handleSettingsSaved() {
+  await fetchBangumi()
 }
 
 async function handleRefreshEpisodes() {
@@ -383,28 +478,6 @@ function openTorrent(episode: Episode) {
     return
   }
   window.open(episode.torrent_url, '_blank', 'noopener')
-}
-
-async function fetchFiltering() {
-  if (!subscriptionId.value) {
-    activeSource.value = 'none'
-    activeSubtitleGroups.value = ''
-    matchedEpisodeIds.value = new Set()
-    return
-  }
-  try {
-    const { data } = await subscriptionApi.filtering(subscriptionId.value)
-    activeSource.value = data.active_source
-    globalFilterAvailable.value = data.global_filter_available
-    activeSubtitleGroups.value = data.active_subtitle_groups || ''
-    matchedEpisodeIds.value = new Set<number>(data.matched_episode_ids || [])
-  } catch {
-    // Error handled by interceptor
-  }
-}
-
-async function handleSettingsSaved() {
-  await fetchBangumi()
 }
 
 onMounted(() => {

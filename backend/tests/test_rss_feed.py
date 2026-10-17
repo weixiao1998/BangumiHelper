@@ -88,3 +88,71 @@ def test_build_feed_without_torrent_has_no_enclosure() -> None:
 
     assert "<enclosure" not in xml
     assert "<title>[番剧名] 只有磁力</title>" in xml
+
+
+def test_collect_feed_entries_dedupes_and_applies_each_subscription_filter() -> None:
+    """同一番剧在多个组时：任一订阅命中即输出，但同一集只出现一次。"""
+    from types import SimpleNamespace
+
+    from app.models.models import BangumiFilter, Episode
+    from app.services.rss_feed import collect_feed_entries
+
+    bangumi = SimpleNamespace(name="番剧A")
+    sub1 = SimpleNamespace(id=1, bangumi=bangumi)
+    sub2 = SimpleNamespace(id=2, bangumi=bangumi)
+    subscriptions_by_bangumi = {1: [sub1, sub2]}
+    active_filters = {
+        1: BangumiFilter(
+            subscription_id=1, user_id=1, bangumi_name="番剧A", subtitle_groups="LoliHouse"
+        ),
+        2: BangumiFilter(
+            subscription_id=2, user_id=1, bangumi_name="番剧A", exclude_keywords="1080p"
+        ),
+    }
+
+    episodes = [
+        Episode(
+            id=1,
+            bangumi_id=1,
+            title="[LoliHouse] 01 [720p][简体]",
+            episode_number=1,
+            subtitle_group="LoliHouse",
+        ),
+        Episode(
+            id=2,
+            bangumi_id=1,
+            title="[Other] 02 [720p][简体]",
+            episode_number=2,
+            subtitle_group="Other",
+        ),
+        Episode(
+            id=3,
+            bangumi_id=1,
+            title="[Other] 03 [1080p][简体]",
+            episode_number=3,
+            subtitle_group="Other",
+        ),
+    ]
+
+    entries = collect_feed_entries(episodes, subscriptions_by_bangumi, active_filters)
+
+    # ep1 两条订阅都命中 → 仍只输出一次；ep2 仅 sub2 命中；ep3 被 sub2 的 1080p 排除
+    assert [ep.id for _, ep in entries] == [1, 2]
+    assert all(prefix == "番剧A" for prefix, _ in entries)
+
+
+def test_collect_feed_entries_without_rules_keeps_all() -> None:
+    from types import SimpleNamespace
+
+    from app.models.models import Episode
+    from app.services.rss_feed import collect_feed_entries
+
+    sub = SimpleNamespace(id=1, bangumi=SimpleNamespace(name="番剧A"))
+    episodes = [
+        Episode(id=1, bangumi_id=1, title="第 1 集", episode_number=1),
+        Episode(id=2, bangumi_id=1, title="第 2 集", episode_number=2),
+    ]
+
+    entries = collect_feed_entries(episodes, {1: [sub]}, {1: None})
+
+    assert [ep.id for _, ep in entries] == [1, 2]

@@ -88,15 +88,12 @@ async def get_calendar(
     db_bangumi_list = result.scalars().all()
 
     result = await session.execute(
-        select(Subscription)
-        .options(selectinload(Subscription.bangumi))
-        .where(Subscription.user_id == current_user.id)
+        select(Subscription.bangumi_id).where(Subscription.user_id == current_user.id)
     )
-    subscriptions = {sub.bangumi.name: sub for sub in result.scalars().all()}
+    subscribed_bangumi_ids = set(result.scalars().all())
 
     weekday_map: dict[str, list[BangumiListResponse]] = {}
     for bangumi in db_bangumi_list:
-        sub = subscriptions.get(bangumi.name)
         bangumi_response = BangumiListResponse(
             id=bangumi.id,
             name=bangumi.name,
@@ -107,7 +104,7 @@ async def get_calendar(
             data_source=bangumi.data_source,
             subtitle_groups=bangumi.subtitle_groups,
             description=bangumi.description,
-            is_subscribed=sub is not None,
+            is_subscribed=bangumi.id in subscribed_bangumi_ids,
             seasons=[f"{s.year} {s.season}" for s in bangumi.seasons],
         )
 

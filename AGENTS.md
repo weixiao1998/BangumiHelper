@@ -59,16 +59,18 @@ backend/
     │   └── utils.py          # 工具函数 (时间处理等)
     ├── models/models.py      # 所有 SQLAlchemy 模型 (单文件)
     ├── schemas/schemas.py    # 所有 Pydantic schema (单文件)
-    ├── api/endpoints/        # 路由: auth, user, bangumi, subscription, rss, health, settings, invite_codes
+    ├── api/endpoints/        # 路由: auth, user, bangumi, subscription, subscription_group, rss, health, settings, invite_codes
     └── services/
         ├── data_sources/     # 插件化数据源: base, mikan
-        └── rss_feed.py       # RSS feed 构造 + 时间/条数窗口控制
+        └── rss_feed.py       # RSS feed 构造 + 时间/条数窗口控制 + 多订阅合并去重
 
 frontend/src/
 ├── api/index.ts             # Axios 实例, /api baseURL, token 拦截, 401→login
 ├── stores/user.ts           # Pinia (组合式), localStorage token
 ├── router/index.ts          # 认证守卫
-├── components/              # SubscriptionSettingsDialog（订阅设置：新建/编辑共用，含规则来源与暂停）
+├── types.ts                 # 订阅/订阅组/规则字段共享类型
+├── utils/filter.ts          # 规则表单转换与条件判断（不包含匹配逻辑）
+├── components/              # SubscriptionGroupDialog, SubscriptionSettingsDialog, FilterRuleForm
 ├── views/                   # Calendar, BangumiDetail, Search, Subscriptions, Settings, Login, Register
 ├── layouts/MainLayout.vue
 └── @ 别名 → src/
@@ -82,7 +84,11 @@ frontend/src/
 - **包管理**: 使用 uv 管理依赖，`uv.lock` 锁定版本，应该尽量选用维护活跃的依赖
 - **插件模式**: 数据源 → 继承抽象基类 → `__init__.py` 注册字典 → 工厂函数获取
 - **下载投放方式**: 只有 RSS（服务端出 feed，用户下载器拉取）。目标形态是公网共享实例，用户下载器在各自 NAT 后，服务器**无法**主动推送，因此不提供"服务器直推下载器"的字段与接口；下载器地址/凭据不应再进入数据模型
-- **过滤规则来源**: 订阅在任一时刻只有一份生效规则，由 `subscriptions.filter_mode` 决定（`inherit`=用户全局默认规则 / `custom`=订阅自身规则），**互斥不叠加**；**空规则（无条件）= 不过滤**；判定只在后端 `core/filter_utils.py` 实现一处，前端不得再复制一份（详情页用 `GET /subscriptions/{id}/filtering` 拿命中集）
+- **订阅组**: 用户可创建多个 `subscription_groups`；每个组有一份组默认过滤规则、启用状态、组级 RSS token。每个用户至少保留一个组（注册自动创建「默认订阅组」，最后一个组不可删除）。删除有订阅的组必须显式 `delete_subscriptions=true`，前端二次确认后级联删除订阅
+- **订阅归属**: `subscriptions.group_id` 非空；同一番剧可订阅到多个组，但同一组内不允许重复。移动订阅到其他组时目标组内不能已有同一番剧
+- **过滤规则来源**: 订阅在任一时刻只有一份生效规则，由 `subscriptions.filter_mode` 决定（`inherit`=整份组默认规则 / `custom`=整份订阅自身规则），**互斥不叠加、不做字段级混搭**；**空规则（无条件）= 不过滤**；判定只在后端 `core/filter_utils.py` 实现一处，前端不得再复制一份（详情页用 `GET /subscriptions/{id}/filtering` 拿命中集）
+- **组暂停**: `subscription_groups.status=0` 时整组暂停：组 feed 返回 404、用户级全部 feed 跳过；不修改组内订阅的 `status`
+- **RSS 类型**: 只有两类——组 feed `GET /api/rss/group/{id}?token=`（主入口）与用户级全部 feed `GET /api/rss/user/{id}?token=`；**没有**单订阅 feed、没有 `/downloaders/rss` 旧路径。token 只有用户级 + 组级两种
 - **单文件模型**: `models/models.py`; 所有 Pydantic schema 在 `schemas/schemas.py`
 - **前端自动导入**: Element Plus 组件/图标无需手动 import
 - **Lint**: Ruff line-length=120, target=py314, 忽略 E501
@@ -96,10 +102,11 @@ frontend/src/
 | 主题 | 路径 |
 |------|------|
 | 开发指南（新增数据源、RSS feed/窗口语义、时间处理规范、Docker 开发模式） | [documents/development.md](documents/development.md) |
+| 订阅组设计（组规则、组 feed、迁移 014、我的订阅页交互） | [documents/subscription-groups.md](documents/subscription-groups.md) |
 | 订阅/自动下载重构设计（为何只用 RSS、窗口语义、决策记录） | [documents/auto-download-redesign.md](documents/auto-download-redesign.md) |
-| 过滤规则重构设计（全局默认规则 vs 订阅自定义、判定收敛到后端） | [documents/filter-redesign.md](documents/filter-redesign.md) |
+| 过滤规则历史设计（全局默认规则 vs 订阅自定义；014 起已改为组规则） | [documents/filter-redesign.md](documents/filter-redesign.md) |
 | Docker 生产部署、Caddy 配置、数据源刷新 | [documents/deployment.md](documents/deployment.md) |
-| 运维操作（容器内 mysql 操作数据库、换 MIKAN_URL 数据处理等） | [documents/operations.md](documents/operations.md) |
+| 运维操作（容器内 mysql 操作数据库、迁移 014 前置清理等） | [documents/operations.md](documents/operations.md) |
 
 ## AGENTS.md 维护
 

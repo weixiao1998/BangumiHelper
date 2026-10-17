@@ -20,8 +20,9 @@ from datetime import UTC, datetime, timedelta
 from feedgenerator import Enclosure, Rss201rev2Feed
 from sqlalchemy import Select
 
+from app.core.filter_utils import FilterRule, filter_episodes
 from app.core.utils import utc_now
-from app.models.models import Episode
+from app.models.models import Episode, Subscription
 
 # 默认窗口：最近 60 天 或 最近 100 条，取先到者
 DEFAULT_WINDOW_DAYS = 60
@@ -47,6 +48,30 @@ def apply_window(stmt: Select, days: int | None, *, now: datetime | None = None)
         # publish_time 为空的历史数据无法判断新旧，按窗口排除
         stmt = stmt.where(Episode.publish_time.is_not(None), Episode.publish_time >= cutoff)
     return stmt.order_by(Episode.publish_time.desc(), Episode.id.desc())
+
+
+def collect_feed_entries(
+    episodes: list[Episode],
+    subscriptions_by_bangumi: dict[int, list[Subscription]],
+    active_filters: dict[int, FilterRule | None],
+) -> list[tuple[str | None, Episode]]:
+    """把剧集整理为 feed 条目，并按 episode.id 去重。
+
+    - 组 feed 与用户级聚合 feed 共用；
+    - 同一番剧可能存在于多个订阅组，用户级 feed 必须保证同一集只输出一次；
+    - 一集只要被该番剧的任一订阅命中就输出，标题前缀使用番剧名。
+    """
+    entries: list[tuple[str | None, Episode]] = []
+    seen: set[int] = set()
+    for ep in episodes:
+        if ep.id in seen:
+            continue
+        for sub in subscriptions_by_bangumi.get(ep.bangumi_id, []):
+            if filter_episodes([ep], active_filters.get(sub.id)):
+                entries.append((sub.bangumi.name, ep))
+                seen.add(ep.id)
+                break
+    return entries
 
 
 def _as_utc(dt: datetime | None) -> datetime | None:

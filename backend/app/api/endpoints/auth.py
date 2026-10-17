@@ -1,16 +1,16 @@
+import secrets
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.constants import RegistrationMode
 from app.core.database import get_async_session
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.core.system_config import SystemConfig
-from app.models.models import InviteCode, User
+from app.models.models import InviteCode, SubscriptionGroup, User
 from app.schemas import RegistrationConfigResponse, Token, UserCreate, UserResponse
 
 router = APIRouter()
@@ -32,9 +32,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    result = await session.execute(
-        select(User).options(selectinload(User.global_filter)).where(User.username == username)
-    )
+    result = await session.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -106,11 +104,21 @@ async def register(
         hashed_password=get_password_hash(user_create.password),
     )
 
-    result = await session.execute(select(User))
+    # 只取一条：scalar_one_or_none() 在多用户时会抛 MultipleResultsFound
+    result = await session.execute(select(User.id).limit(1))
     if result.scalar_one_or_none() is None:
         user.is_admin = True
 
     session.add(user)
+    await session.flush()
+    # 每个用户至少有一个订阅组，注册时自动创建空组
+    session.add(
+        SubscriptionGroup(
+            user_id=user.id,
+            name="默认订阅组",
+            rss_token=secrets.token_hex(32),
+        )
+    )
     await session.commit()
     await session.refresh(user)
 

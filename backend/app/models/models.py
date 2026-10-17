@@ -23,7 +23,9 @@ class User(Base):
 
     subscriptions: Mapped[list[Subscription]] = relationship(back_populates="user", cascade="all, delete-orphan")
     filters: Mapped[list[BangumiFilter]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    global_filter: Mapped[GlobalFilter | None] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
+    subscription_groups: Mapped[list[SubscriptionGroup]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Bangumi(Base):
@@ -90,7 +92,7 @@ class BangumiSeason(Base):
 
 
 class Subscription(Base):
-    """用户对番剧的订阅：一份过滤规则 + 一条 RSS 投放通道。
+    """用户对番剧的订阅：属于一个订阅组，一份过滤规则来源。
 
     投递方式只有 RSS（服务器出 feed，用户的下载器拉取）：本项目的目标形态是公网共享
     实例，用户下载器位于各自 NAT 之后，服务器无法主动推送，因此不存在"服务器直推
@@ -101,18 +103,55 @@ class Subscription(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    group_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("subscription_groups.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     bangumi_id: Mapped[int] = mapped_column(Integer, ForeignKey("bangumi.id", ondelete="CASCADE"), nullable=False)
     # 1=启用，0=暂停（暂停的订阅不输出到 RSS）
     status: Mapped[int] = mapped_column(Integer, default=1)
-    # 过滤规则来源：inherit=用用户的全局默认规则，custom=用订阅自身的规则（互斥，不叠加）
+    # 过滤规则来源：inherit=用订阅组的默认规则，custom=用订阅自身的规则（互斥，不叠加）
     filter_mode: Mapped[str] = mapped_column(String(10), default=FilterMode.INHERIT, nullable=False)
-    rss_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
 
     user: Mapped[User] = relationship(back_populates="subscriptions")
+    group: Mapped[SubscriptionGroup] = relationship(back_populates="subscriptions")
     bangumi: Mapped[Bangumi] = relationship(back_populates="subscriptions")
     filter: Mapped[BangumiFilter | None] = relationship(back_populates="subscription", uselist=False, cascade="all, delete-orphan")
+
+
+class SubscriptionGroup(Base):
+    """用户自定义的订阅组：组内多部番剧共享一份默认过滤规则与一条组 RSS。
+
+    - group.status=0 时整组暂停：组 feed 返回 404，用户级全部 feed 跳过该组；
+    - 组默认规则是订阅 filter_mode=inherit 时唯一生效的规则，与订阅自定义规则互斥。
+    """
+
+    __tablename__ = "subscription_groups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 1=启用，0=暂停
+    status: Mapped[int] = mapped_column(Integer, default=1)
+    rss_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    include_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
+    exclude_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
+    subtitle_groups: Mapped[str | None] = mapped_column(Text, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    regex_pattern: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    min_episode: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_episode: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_subscription_groups_user_name"),)
+
+    user: Mapped[User] = relationship(back_populates="subscription_groups")
+    subscriptions: Mapped[list[Subscription]] = relationship(
+        back_populates="group", cascade="all, delete-orphan"
+    )
 
 
 class BangumiFilter(Base):
@@ -134,30 +173,6 @@ class BangumiFilter(Base):
 
     user: Mapped[User] = relationship(back_populates="filters")
     subscription: Mapped[Subscription] = relationship(back_populates="filter")
-
-
-class GlobalFilter(Base):
-    """用户级默认过滤规则。
-
-    字段与 BangumiFilter 保持一致（含 language）。它是「默认值」而非「叠加层」：
-    订阅用 filter_mode=inherit 时使用它，用 custom 时改用自己的规则。
-    """
-
-    __tablename__ = "global_filters"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
-    include_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
-    exclude_keywords: Mapped[str | None] = mapped_column(Text, nullable=True)
-    subtitle_groups: Mapped[str | None] = mapped_column(Text, nullable=True)
-    language: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    regex_pattern: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    min_episode: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    max_episode: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
-
-    user: Mapped[User] = relationship(back_populates="global_filter")
 
 
 class SubtitleGroup(Base):
