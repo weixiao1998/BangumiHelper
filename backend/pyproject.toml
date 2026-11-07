@@ -6,37 +6,37 @@ authors = [{ name = "BangumiHelper Team" }]
 readme = "README.md"
 requires-python = ">=3.14,<4"
 dependencies = [
-    "fastapi==0.143.0",
+    "fastapi==0.162.0",
     "uvicorn[standard]==0.54.0",
-    "sqlalchemy[asyncio]==2.1.4",
+    "sqlalchemy[asyncio]==2.1.8",
     "aiomysql==0.3.2",
-    "pydantic==2.14.0",
-    "pydantic-settings==2.15.0",
+    "pydantic==2.14.2",
+    "pydantic-settings==2.16.2",
     "email-validator==2.3.0",
     # JWT：python-jose 已停更且无修复版本（critical 算法混淆 CVE），改用活跃维护的 PyJWT
     "pyjwt==2.15.1",
     # PyMySQL 连接 MySQL 8 的 caching_sha2_password 用户需要它（原本是被 python-jose[cryptography] 捎带安装的）
     "cryptography==50.0.2",
     "bcrypt==5.0.0",
-    "python-multipart==0.0.32",
-    "aiohttp==3.14.4",
+    "python-multipart==0.0.33",
+    "aiohttp==3.14.5",
     "beautifulsoup4==4.15.0",
     "lxml==6.1.3",
     "feedparser==6.0.14",
     "feedgenerator==2.2.1",
     "loguru==0.7.3",
-    "alembic==1.20.0",
+    "alembic==1.20.1",
     "apscheduler==3.11.3",
     "pillow==13.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest==9.1.1",
-    "pytest-asyncio==1.4.0",
+    "pytest==9.2.0",
+    "pytest-asyncio==1.4.1.post1",
     "pytest-cov==7.1.0",
-    "ruff==0.16.10",
-    "mypy==2.4.0",
+    "ruff==0.17.3",
+    "mypy==2.4.1",
 ]
 
 [build-system]
