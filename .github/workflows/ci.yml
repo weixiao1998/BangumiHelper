@@ -54,12 +54,14 @@ jobs:
       - name: 安装 Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          # 与 frontend/Dockerfile（node:24-alpine）和 .nvmrc 保持一致
+          node-version: "24"
 
       - name: 安装 pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.33.0
+          # 版本取自 frontend/package.json 的 packageManager，避免与 Dockerfile/本地漂移
+          package_json_file: frontend/package.json
 
       - name: 安装依赖（锁定）
         run: pnpm install --frozen-lockfile

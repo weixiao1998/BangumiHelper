@@ -5,7 +5,8 @@ FROM node:24-alpine AS deps
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@10.8.1 --activate
+# pnpm 版本只在 package.json 的 packageManager 里声明，corepack 会自动按它下载
+RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
