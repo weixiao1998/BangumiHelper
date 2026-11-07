@@ -66,6 +66,17 @@ class EpisodeResponse(EpisodeBase):
         from_attributes = True
 
 
+class EpisodeDetailResponse(EpisodeResponse):
+    """RSS 条目落地页所需的剧集信息（免认证）。
+
+    只暴露数据源本来就公开的剧集字段 + 所属番剧名称/封面，不含任何用户数据。
+    """
+
+    bangumi_name: str
+    bangumi_cover: str | None = None
+    data_source: str
+
+
 def _coerce_seasons(value) -> list[str]:
     """把 bangumi.seasons（SQLAlchemy BangumiSeason 对象列表）转成 "YYYY 季" 标签列表。"""
     if not value:

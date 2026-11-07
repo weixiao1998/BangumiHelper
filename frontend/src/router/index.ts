@@ -17,6 +17,13 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
+      // RSS 条目 <link> 的落地页：在阅读器里点开时通常没有登录态，因此免认证
+      path: '/episode/:id',
+      name: 'EpisodeDetail',
+      component: () => import('@/views/EpisodeDetail.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
       path: '/',
       component: () => import('@/layouts/MainLayout.vue'),
       meta: { requiresAuth: true },

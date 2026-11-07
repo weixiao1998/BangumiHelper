@@ -71,7 +71,7 @@ frontend/src/
 ├── types.ts                 # 订阅/订阅组/规则字段共享类型
 ├── utils/filter.ts          # 规则表单转换与条件判断（不包含匹配逻辑）
 ├── components/              # SubscriptionGroupDialog, SubscriptionSettingsDialog, FilterRuleForm
-├── views/                   # Calendar, BangumiDetail, Search, Subscriptions, Settings, Login, Register
+├── views/                   # Calendar, BangumiDetail, EpisodeDetail(免认证 RSS 落地页), Search, Subscriptions, Settings, Login, Register
 ├── layouts/MainLayout.vue
 └── @ 别名 → src/
 ```
@@ -89,6 +89,7 @@ frontend/src/
 - **过滤规则来源**: 订阅在任一时刻只有一份生效规则，由 `subscriptions.filter_mode` 决定（`inherit`=整份组默认规则 / `custom`=整份订阅自身规则），**互斥不叠加、不做字段级混搭**；**空规则（无条件）= 不过滤**；判定只在后端 `core/filter_utils.py` 实现一处，前端不得再复制一份（详情页用 `GET /subscriptions/{id}/filtering` 拿命中集）
 - **组暂停**: `subscription_groups.status=0` 时整组暂停：组 feed 返回 404、用户级全部 feed 跳过；不修改组内订阅的 `status`
 - **RSS 类型**: 只有两类——组 feed `GET /api/rss/group/{id}?token=`（主入口）与用户级全部 feed `GET /api/rss/user/{id}?token=`；**没有**单订阅 feed、没有 `/downloaders/rss` 旧路径。token 只有用户级 + 组级两种
+- **RSS 条目语义**（对齐蜜柑 feed）: 条目 `<link>` 指向站内落地页 `/episode/{id}`（前端 `EpisodeDetail.vue`，数据由免认证的 `GET /api/bangumi/episodes/{id}` 提供），种子只放 `<enclosure>`；**不要**把种子/磁力写进 `<link>`，否则在阅读器里点标题会直接下载 .torrent。仅当该集没有种子文件、只有磁力时才让 `<link>` 退回 magnet（enclosure 无法承载磁力）。频道 `<image>` 指向 `{base}/feed-icon.png`（144×144，`frontend/public/`），阅读器只认它显示订阅源头像——站点的 favicon 不会被自动采用
 - **单文件模型**: `models/models.py`; 所有 Pydantic schema 在 `schemas/schemas.py`
 - **前端自动导入**: Element Plus 组件/图标无需手动 import
 - **Lint**: Ruff line-length=120, target=py314, 忽略 E501

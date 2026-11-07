@@ -94,6 +94,17 @@ pnpm dev
   若把 LIMIT 下推到 SQL，最新的若干集若不匹配过滤条件就会吃掉整个窗口，导致 feed
   "明明有命中却返回空"（实测出现过）。`tests/test_rss_feed.py` 锁住了这一点。
 - `unique_id = episode-{id}` 必须保持稳定：客户端据此去重，避免同一集重复下载。
+- **条目 `<link>` 必须是给人看的页面，种子只走 `<enclosure>`**（与蜜柑 RSS 一致）：
+  `<link>` 指向站内落地页 `/episode/{id}`（`views/EpisodeDetail.vue`，数据来自免认证的
+  `GET /api/bangumi/episodes/{id}`）。历史 bug：把种子/磁力塞进 `<link>`，在 RSS 阅读器里
+  点条目标题会直接开始下载 .torrent。例外：该集只有磁力、没有种子文件时 `<link>` 退回
+  magnet（`<enclosure>` 的 `type` 只能是种子，磁力无处可放，否则条目没有任何可下载地址）。
+- **频道图标走 channel `<image>`**：`feedgenerator` 不输出 `<image>`，由
+  `services/rss_feed.py` 的 `_FeedWithImage` 补上，url 为 `{base}/feed-icon.png`
+  （144×144，`frontend/public/feed-icon.png`；同目录还有 `favicon.ico` 兜底）。阅读器只认
+  `<image>`，不会去抓 channel `<link>` 页面的 favicon，缺它就只能显示通用 RSS 图标。
+- 落地页免认证，是因为用户可能在任意设备/阅读器里打开链接，逐条要求登录会显得 feed 坏了；
+  该接口只返回数据源公开的剧集字段 + 番剧名称/封面，不含用户数据。
 - 同一番剧可存在于多个组：用户级聚合 feed 用 `collect_feed_entries()` 按 episode id 去重；
   一集只要被任一有效订阅命中就输出。
 - 暂停语义：

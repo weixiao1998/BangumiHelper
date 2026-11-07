@@ -49,6 +49,8 @@ async def _group_feed(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="该订阅组已暂停")
 
     base_url = _base_url(request)
+    # 频道图标：阅读器靠 channel <image> 显示订阅源头像（站点 favicon 不会被自动采用）
+    icon_url = f"{base_url}/feed-icon.png"
     feed_title = f"[BangumiHelper] {group.name}"
     feed_link = f"{base_url}/subscriptions?group={group.id}"
     feed_description = f"{group.name} 的订阅组 RSS"
@@ -62,7 +64,14 @@ async def _group_feed(
 
     if not subscriptions:
         return _feed_response(
-            build_feed(title=feed_title, link=feed_link, description=feed_description, entries=[])
+            build_feed(
+                title=feed_title,
+                link=feed_link,
+                description=feed_description,
+                entries=[],
+                base_url=base_url,
+                icon_url=icon_url,
+            )
         )
 
     subscriptions_by_bangumi: dict[int, list[Subscription]] = defaultdict(list)
@@ -86,7 +95,14 @@ async def _group_feed(
     if window_limit is not None:
         entries = entries[:window_limit]
 
-    content = build_feed(title=feed_title, link=feed_link, description=feed_description, entries=entries)
+    content = build_feed(
+        title=feed_title,
+        link=feed_link,
+        description=feed_description,
+        entries=entries,
+        base_url=base_url,
+        icon_url=icon_url,
+    )
     return _feed_response(content)
 
 
@@ -105,6 +121,7 @@ async def _user_feed(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在或token无效")
 
     base_url = _base_url(request)
+    icon_url = f"{base_url}/feed-icon.png"
     feed_title = f"[BangumiHelper] {user.username} 的订阅"
     feed_link = f"{base_url}/subscriptions"
     feed_description = f"{user.username} 的聚合订阅 RSS"
@@ -123,7 +140,14 @@ async def _user_feed(
 
     if not subscriptions:
         return _feed_response(
-            build_feed(title=feed_title, link=feed_link, description=feed_description, entries=[])
+            build_feed(
+                title=feed_title,
+                link=feed_link,
+                description=feed_description,
+                entries=[],
+                base_url=base_url,
+                icon_url=icon_url,
+            )
         )
 
     subscriptions_by_bangumi: dict[int, list[Subscription]] = defaultdict(list)
@@ -146,7 +170,14 @@ async def _user_feed(
     if window_limit is not None:
         entries = entries[:window_limit]
 
-    content = build_feed(title=feed_title, link=feed_link, description=feed_description, entries=entries)
+    content = build_feed(
+        title=feed_title,
+        link=feed_link,
+        description=feed_description,
+        entries=entries,
+        base_url=base_url,
+        icon_url=icon_url,
+    )
     return _feed_response(content)
 
 

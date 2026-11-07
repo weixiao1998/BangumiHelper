@@ -30,7 +30,9 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: process.env.API_PROXY_TARGET || 'http://localhost:18000',
-        changeOrigin: true,
+        // 刻意不开启 changeOrigin：后端按请求 Host 生成 RSS 里的站内链接
+        // （剧集落地页 /episode/{id}），改写成内部地址会让 feed 里出现 backend:8000
+        changeOrigin: false,
       },
     },
   },
