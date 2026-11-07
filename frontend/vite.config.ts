@@ -20,7 +20,8 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      // import.meta.dirname 取代 __dirname：Vite 8 起原生 config loader 不支持 __dirname
+      '@': resolve(import.meta.dirname, 'src'),
     },
   },
   server: {
