@@ -58,15 +58,16 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to, _from, next) => {
+// vue-router 5 起 next() 回调已废弃（运行时会打 VUE_ROUTER_R0025），改用返回值：
+// 返回 false 中止、返回 location 重定向、返回 undefined 放行
+router.beforeEach((to) => {
   const userStore = useUserStore()
 
   if (to.meta.requiresAuth && !userStore.isLoggedIn) {
-    next({ name: 'Login', query: { redirect: to.fullPath } })
-  } else if ((to.name === 'Login' || to.name === 'Register') && userStore.isLoggedIn) {
-    next({ name: 'Home' })
-  } else {
-    next()
+    return { name: 'Login', query: { redirect: to.fullPath } }
+  }
+  if ((to.name === 'Login' || to.name === 'Register') && userStore.isLoggedIn) {
+    return { name: 'Home' }
   }
 })
 
