@@ -13,7 +13,10 @@ dependencies = [
     "pydantic==2.14.0",
     "pydantic-settings==2.15.0",
     "email-validator==2.3.0",
-    "python-jose[cryptography]==3.5.0",
+    # JWT：python-jose 已停更且无修复版本（critical 算法混淆 CVE），改用活跃维护的 PyJWT
+    "pyjwt==2.15.1",
+    # PyMySQL 连接 MySQL 8 的 caching_sha2_password 用户需要它（原本是被 python-jose[cryptography] 捎带安装的）
+    "cryptography==50.0.2",
     "bcrypt==5.0.0",
     "python-multipart==0.0.32",
     "aiohttp==3.14.4",
