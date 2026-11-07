@@ -1,4 +1,6 @@
 # pnpm 10 起，overrides 等设置从 package.json 的 "pnpm" 字段移到这个文件。
-# follow-redirects 是 axios 的传递依赖，抬到已修复版本（GHSA-8r9p-f939-6h3c 等）。
 overrides:
+  # axios 的传递依赖（GHSA-8r9p-f939-6h3c 等 3 条 high）
   follow-redirects: ^1.16.2
+  # eslint / @typescript-eslint 的传递依赖（GHSA-g3hv-75wg-m249，dev 工具链）
+  minimatch: ^11.0.1
