@@ -4,3 +4,8 @@ overrides:
   follow-redirects: ^1.16.2
   # eslint / @typescript-eslint 的传递依赖（GHSA-g3hv-75wg-m249，dev 工具链）
   minimatch: ^11.0.1
+
+# pnpm 12 起构建脚本审批改成 allowBuilds（旧的 onlyBuiltDependencies 不再生效），
+# 未列出的包若带 postinstall，install 会直接报 ERR_PNPM_IGNORED_BUILDS
+allowBuilds:
+  '@parcel/watcher': true

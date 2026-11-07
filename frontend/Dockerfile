@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
 
 # ---- Dependencies ----
-FROM node:24-alpine AS deps
+FROM node:26-alpine AS deps
 
 WORKDIR /app
 
-# pnpm 版本只在 package.json 的 packageManager 里声明，corepack 会自动按它下载
-RUN corepack enable
+# Node 26 起发行版不再自带 corepack，先装上；pnpm 版本仍只由 package.json 的 packageManager 决定
+RUN npm install -g corepack@0.35.0 && corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
