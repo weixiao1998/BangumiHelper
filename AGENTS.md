@@ -82,6 +82,7 @@ frontend/src/
 - **全异步**: async SQLAlchemy + async 路由
 - **配置**: 环境变量 / `.env` (pydantic-settings)
 - **包管理**: 使用 uv 管理依赖，`uv.lock` 锁定版本，应该尽量选用维护活跃的依赖
+- **依赖安全**: JWT 用 PyJWT（`import jwt`），**不要**换回已停更的 python-jose（无修复版本的 critical CVE）；`cryptography` 必须显式依赖——MySQL 8 用户是 `caching_sha2_password`，PyMySQL 靠它连库（此前是被 `python-jose[cryptography]` 捎带装的）。前端传递依赖的版本抬升写在 `pnpm-workspace.yaml` 的 `overrides`（pnpm 10 起不再读 package.json 的 `pnpm` 字段），Dockerfile 的依赖层必须 `COPY` 该文件
 - **插件模式**: 数据源 → 继承抽象基类 → `__init__.py` 注册字典 → 工厂函数获取
 - **下载投放方式**: 只有 RSS（服务端出 feed，用户下载器拉取）。目标形态是公网共享实例，用户下载器在各自 NAT 后，服务器**无法**主动推送，因此不提供"服务器直推下载器"的字段与接口；下载器地址/凭据不应再进入数据模型
 - **订阅组**: 用户可创建多个 `subscription_groups`；每个组有一份组默认过滤规则、启用状态、组级 RSS token。每个用户至少保留一个组（注册自动创建「默认订阅组」，最后一个组不可删除）。删除有订阅的组必须显式 `delete_subscriptions=true`，前端二次确认后级联删除订阅

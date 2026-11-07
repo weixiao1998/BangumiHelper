@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import bcrypt
-from jose import JWTError, jwt
+import jwt
 
 from app.core.config import settings
 
@@ -21,6 +21,7 @@ def create_access_token(subject: Any, expires_delta: timedelta | None = None) ->
     else:
         expire = datetime.now(UTC) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode = {"exp": expire, "sub": str(subject)}
+    # PyJWT 的 encode 直接返回 str（python-jose 同名 API，切换不影响已签发的 token 格式）
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
@@ -29,5 +30,5 @@ def decode_access_token(token: str) -> str | None:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload.get("sub")
-    except JWTError:
+    except jwt.PyJWTError:
         return None
