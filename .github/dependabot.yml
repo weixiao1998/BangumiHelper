@@ -9,6 +9,15 @@ updates:
       time: "09:00"
       timezone: Asia/Shanghai
     open-pull-requests-limit: 5
+    ignore:
+      # vue-tsc 3.3.14 会把 reactive 对象的 v-model 误报为 TS2339（Settings.vue），
+      # 3.3.13 正常；先跳过这个版本，等上游修复后再放开
+      - dependency-name: vue-tsc
+        versions: ["3.3.14"]
+      # Vite 8 把构建链换成 rolldown + lightningcss（esbuild/rollup 出局），
+      # 只是 dev 依赖、也没有安全修复需求，手动评估后再升，别每周开一个大版本 PR
+      - dependency-name: vite
+        update-types: ["version-update:semver-major"]
     groups:
       # small/补丁版本合并成一个 PR，减少推送噪音
       npm-minor-patch:
