@@ -33,7 +33,13 @@
             class="bangumi-card"
             @click="router.push(`/bangumi/${bangumi.id}`)"
           >
-            <img :src="bangumi.cover || '/placeholder.png'" :alt="bangumi.name" class="cover" @error="onImgError" />
+            <img
+              :src="coverThumb(bangumi.cover, 320)"
+              :srcset="coverSrcset(bangumi.cover)"
+              :alt="bangumi.name"
+              class="cover"
+              @error="onImgError"
+            />
             <div class="info">
               <div class="name" :title="bangumi.name">{{ bangumi.name }}</div>
               <div class="meta">
@@ -54,6 +60,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { bangumiApi } from '@/api'
 import { useUserStore } from '@/stores/user'
+import { coverSrcset, coverThumb } from '@/utils/cover'
 
 interface BangumiItem {
   id: number
@@ -175,6 +182,8 @@ function sortFromToday(days: CalendarDay[]): CalendarDay[] {
 function onImgError(e: Event) {
   const img = e.target as HTMLImageElement
   if (img.src.includes('/placeholder.png')) return
+  // 清掉 srcset，否则浏览器可能继续加载失败的 2x 候选图
+  img.removeAttribute('srcset')
   img.src = '/placeholder.png'
 }
 

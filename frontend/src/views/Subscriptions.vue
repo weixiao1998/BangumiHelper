@@ -81,7 +81,7 @@
           <el-col v-for="sub in groupSubscriptions" :key="sub.id" :xs="12" :sm="8" :md="6" :lg="4" :xl="3">
             <el-card class="subscription-card" shadow="hover" @click="router.push(`/bangumi/${sub.bangumi.id}`)">
               <div class="cover-wrap">
-                <el-image :src="sub.bangumi.cover || '/placeholder.png'" fit="cover" class="cover">
+                <el-image :src="coverThumb(sub.bangumi.cover, 640)" fit="cover" class="cover">
                   <template #error>
                     <img :src="'/placeholder.png'" alt="" class="cover" />
                   </template>
@@ -164,6 +164,7 @@ import { groupApi, rssApi, subscriptionApi } from '@/api'
 import SubscriptionGroupDialog from '@/components/SubscriptionGroupDialog.vue'
 import SubscriptionSettingsDialog from '@/components/SubscriptionSettingsDialog.vue'
 import type { Subscription, SubscriptionGroup } from '@/types'
+import { coverThumb } from '@/utils/cover'
 import { parseSubtitleGroups, ruleHasConditions } from '@/utils/filter'
 
 const router = useRouter()

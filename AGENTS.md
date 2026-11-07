@@ -96,6 +96,7 @@ frontend/src/
 - **季度建模**: 番剧与季度（年份+春/夏/秋/冬）是多对多（半年番/年番跨多季），用 `bangumi_seasons` 关联表表达，不放 bangumi 列；季度值与蜜柑 `seasonStr` 参数一致
 - **配置分层**: 引导配置（SECRET_KEY/DB_* 等）在 `.env`，改后需 `up -d` 重建容器；运行时配置（MIKAN_URL/蜜柑账号/代理/注册模式 等）存 DB，由管理 UI「系统设置」维护，即时生效
 - **时间处理**: 后端统一使用 UTC 时间存储和传输，前端使用 `dayjs.utc().local()` 转为用户本地时间显示。时间工具函数位于 `app/core/utils.py`
+- **封面代理**: `GET /api/bangumi/{id}/cover` 免认证（`<img>` 无法携带 JWT header）；支持 `?w=`（64~1600）返回缩略图并缓存到 `{DATA_DIR}/covers`。列表/卡片用 `utils/cover.ts` 的 `coverThumb`/`coverSrcset` 按显示宽度取小图（避免浏览器把 1200px 原图大幅缩小导致线条发黑），详情页保持原图
 
 ## 详细文档索引
 
