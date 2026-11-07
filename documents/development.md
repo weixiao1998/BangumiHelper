@@ -21,7 +21,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 ## 本地开发（无 Docker）
 
-适用于 IDE 断点调试、需要原生运行环境的场景。需自行安装 Python 3.14、Node.js、pnpm。
+适用于 IDE 断点调试、需要原生运行环境的场景。需自行安装 Python 3.14、Node.js **24**（见仓库根 `.nvmrc`，`nvm use` 即可）、pnpm（版本跟随 `frontend/package.json` 的 `packageManager`）。
 
 ### 后端
 
@@ -51,8 +51,8 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 18000
 ```bash
 cd frontend
 
-# 安装 pnpm（如果没有）
-npm install -g pnpm
+# 安装 pnpm：版本以 frontend/package.json 的 packageManager 为准（当前 10.33.0）
+npm install -g pnpm@10.33.0
 
 # 安装依赖
 pnpm install
