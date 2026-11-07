@@ -5,7 +5,10 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "strict": true
+    "strict": true,
+    // 只产出 vite.config.d.ts：若产出 vite.config.js，Vite 会优先加载它，
+    // 开发时改 vite.config.ts 将不生效（历史上因此踩过 Host 被改写、RSS 里出现内网地址的坑）
+    "emitDeclarationOnly": true
   },
   "include": ["vite.config.ts"]
 }

@@ -80,19 +80,67 @@ def _as_utc(dt: datetime | None) -> datetime | None:
     return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
 
 
+class _FeedWithImage(Rss201rev2Feed):
+    """带频道图标（<image>）的 RSS 2.0 feed。
+
+    feedgenerator 只输出 title/link/description，不会写 channel <image>；而阅读器正是在
+    有 <image> 时才给订阅源头像，否则一律显示通用的 RSS 图标（站点的 favicon 也不会被
+    用上：channel 的 <link> 指向站内页面，很多阅读器并不会去抓它的 favicon）。
+    """
+
+    def __init__(self, *args, image_url: str | None = None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.image_url = image_url
+
+    def add_root_elements(self, handler) -> None:
+        super().add_root_elements(handler)
+        if not self.image_url:
+            return
+        # <image> 是 channel 级元素，必须写在第一个 <item> 之前，所以在 root elements 里追加。
+        # url/title/link 是 RSS 2.0 规定的必填子元素；宽高上限 144（feed-icon.png 即 144×144）。
+        handler.startElement("image", {})
+        handler.addQuickElement("url", self.image_url)
+        handler.addQuickElement("title", self.feed["title"])
+        handler.addQuickElement("link", self.feed["link"])
+        handler.addQuickElement("width", "144")
+        handler.addQuickElement("height", "144")
+        handler.endElement("image")
+
+
+def _item_link(ep: Episode, base_url: str | None) -> str:
+    """条目的 <link>：站内剧集详情页，语义与蜜柑 RSS 一致。
+
+    蜜柑的 <link> 是可点击的网页、种子只放在 <enclosure> 里。如果把种子/磁力塞进
+    <link>，在 RSS 阅读器里点条目标题就会直接开始下载 .torrent（历史 bug），
+    而 <link> 本该是给人看的那一页。
+    """
+    page_url = f"{base_url.rstrip('/')}/episode/{ep.id}" if base_url else None
+    if ep.torrent_url:
+        return page_url or ep.torrent_url
+    if ep.magnet_url:
+        # 只有磁力、没有种子文件时无法用 enclosure 承载，link 退回磁力：
+        # 否则该条目在客户端眼里没有任何可下载地址
+        return ep.magnet_url
+    return page_url or ""
+
+
 def build_feed(
     *,
     title: str,
     link: str,
     description: str,
     entries: list[tuple[str | None, Episode]],
+    base_url: str | None = None,
+    icon_url: str | None = None,
 ) -> str:
     """构造 RSS 2.0 feed。
 
     entries 为 (标题前缀, 剧集) 列表：单订阅 feed 前缀为 None（只用剧集标题），
     用户级聚合 feed 前缀为番剧名，便于在同一个 feed 里区分来源。
+    base_url 为站点根地址，用于把条目 <link> 指向站内剧集详情页。
+    icon_url 为频道图标地址（绝对 URL），阅读器把它当作订阅源头像。
     """
-    feed = Rss201rev2Feed(title=title, link=link, description=description)
+    feed = _FeedWithImage(title=title, link=link, description=description, image_url=icon_url)
 
     for prefix, ep in entries:
         description_parts = [f"第 {ep.episode_number} 集"]
@@ -119,7 +167,7 @@ def build_feed(
 
         feed.add_item(
             title=f"[{prefix}] {ep.title}" if prefix else ep.title,
-            link=ep.magnet_url or ep.torrent_url or "",
+            link=_item_link(ep, base_url),
             description="；".join(description_parts),
             # 稳定且唯一，客户端据此去重，避免同一集重复下载
             unique_id=f"episode-{ep.id}",

@@ -10,7 +10,14 @@ from app.api.endpoints.auth import get_current_active_user
 from app.core.database import async_session_maker, get_async_session
 from app.core.utils import utc_now
 from app.models.models import Bangumi, BangumiSeason, Episode, Subscription, User
-from app.schemas import BangumiListResponse, BangumiResponse, CalendarResponse, MessageResponse, SearchResult
+from app.schemas import (
+    BangumiListResponse,
+    BangumiResponse,
+    CalendarResponse,
+    EpisodeDetailResponse,
+    MessageResponse,
+    SearchResult,
+)
 from app.services.cover_cache import get_cover_response
 from app.services.data_sources import get_data_source
 
@@ -158,6 +165,44 @@ async def refresh_bangumi_list(
     return MessageResponse(message="番剧列表刷新成功")
 
 
+@router.get("/episodes/{episode_id}", response_model=EpisodeDetailResponse)
+async def get_episode_detail(
+    episode_id: int,
+    session: AsyncSession = Depends(get_async_session),
+):
+    """RSS 条目落地页（免认证）。
+
+    feed 条目的 <link> 指向这里而不是种子/磁力：在 RSS 阅读器或浏览器里点开时通常
+    没有登录态，逐条要求登录会让人以为 feed 坏了。内容只有数据源本来就公开的剧集
+    字段与所属番剧名称/封面，不含任何用户数据。种子/磁力只在页面内作为按钮提供。
+    """
+    result = await session.execute(
+        select(Episode).options(selectinload(Episode.bangumi)).where(Episode.id == episode_id)
+    )
+    episode = result.scalar_one_or_none()
+
+    if not episode:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="剧集不存在")
+
+    bangumi = episode.bangumi
+    return EpisodeDetailResponse(
+        id=episode.id,
+        bangumi_id=episode.bangumi_id,
+        title=episode.title,
+        episode_number=episode.episode_number,
+        torrent_url=episode.torrent_url,
+        magnet_url=episode.magnet_url,
+        file_size=episode.file_size,
+        subtitle_group=episode.subtitle_group,
+        publish_time=episode.publish_time,
+        created_at=episode.created_at,
+        bangumi_name=bangumi.name,
+        # 封面同样走免认证的代理接口，页面里不需要带 JWT
+        bangumi_cover=f"/api/bangumi/{bangumi.id}/cover" if bangumi.cover else None,
+        data_source=bangumi.data_source,
+    )
+
+
 @router.get("/{bangumi_id}", response_model=BangumiResponse)
 async def get_bangumi_detail(
     bangumi_id: int,
@@ -221,17 +266,19 @@ async def get_bangumi_detail(
 @router.get("/{bangumi_id}/cover")
 async def get_bangumi_cover(
     bangumi_id: int,
+    w: int | None = Query(default=None, ge=64, le=1600, description="缩略图宽度，省略则返回原图"),
     session: AsyncSession = Depends(get_async_session),
 ):
     # 封面代理：首次从外部源下载并缓存到本地，之后由后端直接提供，
     # 避免图片重复加载。该接口免认证，因为 <img> 标签无法携带 JWT header。
+    # 列表卡片传 ?w=320/640 取缩略图，避免把 1200px 原图交给浏览器大幅缩小。
     result = await session.execute(select(Bangumi).where(Bangumi.id == bangumi_id))
     bangumi = result.scalar_one_or_none()
 
     if not bangumi or not bangumi.cover:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="封面不存在")
 
-    return await get_cover_response(bangumi.cover)
+    return await get_cover_response(bangumi.cover, width=w)
 
 
 @router.post("/{bangumi_id}/refresh-episodes", response_model=MessageResponse)

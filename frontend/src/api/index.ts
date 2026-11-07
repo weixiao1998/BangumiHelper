@@ -43,6 +43,8 @@ export const bangumiApi = {
     api.get('/bangumi/calendar', { params: { data_source: dataSource, ...(year != null ? { year } : {}), ...(season ? { season } : {}) } }),
   getBangumi: (id: number) => api.get(`/bangumi/${id}`),
   getEpisodes: (id: number, maxPage: number = 3) => api.get(`/bangumi/${id}/episodes`, { params: { max_page: maxPage } }),
+  // RSS 条目落地页用的单集详情（免认证）
+  getEpisode: (id: number) => api.get(`/bangumi/episodes/${id}`),
   search: (keyword: string, dataSource: string = 'mikan') => api.get('/bangumi/search', { params: { keyword, data_source: dataSource } }),
   refresh: (dataSource: string = 'mikan', year?: number, season?: string) =>
     api.post('/bangumi/refresh', null, { params: { data_source: dataSource, ...(year != null ? { year } : {}), ...(season ? { season } : {}) } }),

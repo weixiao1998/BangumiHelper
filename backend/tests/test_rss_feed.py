@@ -64,7 +64,13 @@ def test_build_feed_emits_torrent_enclosure() -> None:
         publish_time=datetime(2026, 9, 12, 10, 0, tzinfo=UTC),
     )
 
-    xml = build_feed(title="t", link="https://example.com", description="d", entries=[(None, ep)])
+    xml = build_feed(
+        title="t",
+        link="https://example.com",
+        description="d",
+        entries=[(None, ep)],
+        base_url="https://example.com",
+    )
 
     # feedgenerator 会按属性名字母序输出，这里只校验内容
     assert "<enclosure " in xml
@@ -72,7 +78,87 @@ def test_build_feed_emits_torrent_enclosure() -> None:
     assert 'length="0"' in xml
     assert 'type="application/x-bittorrent"' in xml
     assert "<guid>episode-123</guid>" in xml
-    assert "<link>magnet:?xt=urn:btih:abc</link>" in xml
+
+
+def test_build_feed_item_link_is_page_not_torrent() -> None:
+    """条目的 <link> 必须是可点击的站内页面（蜜柑同款语义），种子只走 <enclosure>。
+
+    历史 bug：<link> 直接放种子/磁力，在 RSS 阅读器里点标题会立刻开始下载 .torrent。
+    """
+    from datetime import UTC, datetime
+
+    from app.models.models import Episode
+    from app.services.rss_feed import build_feed
+
+    ep = Episode(
+        id=7,
+        bangumi_id=1,
+        title="测试剧集",
+        episode_number=3,
+        torrent_url="https://example.com/a.torrent",
+        magnet_url="magnet:?xt=urn:btih:abc",
+        publish_time=datetime(2026, 9, 12, 10, 0, tzinfo=UTC),
+    )
+
+    xml = build_feed(
+        title="t",
+        link="https://example.com/rss",
+        description="d",
+        entries=[(None, ep)],
+        base_url="https://bh.example.com/",
+    )
+
+    # <link> 指向落地页，且不会出现磁力
+    assert "<link>https://bh.example.com/episode/7</link>" in xml
+    assert "magnet:" not in xml
+    # 真正可下载的地址仍然只有 enclosure
+    assert 'url="https://example.com/a.torrent"' in xml
+
+
+def test_build_feed_emits_channel_image() -> None:
+    """频道 <image> 是阅读器显示订阅源头像的唯一依据（站点 favicon 不会被自动采用）。
+
+    feedgenerator 本身不输出 <image>，所以由 _FeedWithImage 补上；这些子元素还必须
+    写在第一个 <item> 之前，否则不是合法的 channel 级元素。
+    """
+    from datetime import UTC, datetime
+
+    from app.models.models import Episode
+    from app.services.rss_feed import build_feed
+
+    ep = Episode(
+        id=9,
+        bangumi_id=1,
+        title="测试剧集",
+        episode_number=1,
+        torrent_url="https://example.com/a.torrent",
+        publish_time=datetime(2026, 9, 12, 10, 0, tzinfo=UTC),
+    )
+
+    xml = build_feed(
+        title="t",
+        link="https://bh.example.com/subscriptions",
+        description="d",
+        entries=[(None, ep)],
+        base_url="https://bh.example.com",
+        icon_url="https://bh.example.com/feed-icon.png",
+    )
+
+    assert "<image>" in xml
+    assert "<url>https://bh.example.com/feed-icon.png</url>" in xml
+    assert "<width>144</width>" in xml
+    assert xml.index("<image>") < xml.index("<item>")
+
+
+def test_build_feed_without_icon_has_no_image() -> None:
+    from app.models.models import Episode
+    from app.services.rss_feed import build_feed
+
+    ep = Episode(id=10, bangumi_id=1, title="测试剧集", episode_number=1)
+
+    xml = build_feed(title="t", link="https://example.com", description="d", entries=[(None, ep)])
+
+    assert "<image>" not in xml
 
 
 def test_build_feed_without_torrent_has_no_enclosure() -> None:
@@ -84,10 +170,18 @@ def test_build_feed_without_torrent_has_no_enclosure() -> None:
         torrent_url=None, magnet_url="magnet:?xt=urn:btih:def", file_size=None,
     )
 
-    xml = build_feed(title="t", link="https://example.com", description="d", entries=[("番剧名", ep)])
+    xml = build_feed(
+        title="t",
+        link="https://example.com",
+        description="d",
+        entries=[("番剧名", ep)],
+        base_url="https://example.com",
+    )
 
     assert "<enclosure" not in xml
     assert "<title>[番剧名] 只有磁力</title>" in xml
+    # 没有种子文件可放进 enclosure，link 退回磁力，否则条目没有任何可下载地址
+    assert "<link>magnet:?xt=urn:btih:def</link>" in xml
 
 
 def test_collect_feed_entries_dedupes_and_applies_each_subscription_filter() -> None:

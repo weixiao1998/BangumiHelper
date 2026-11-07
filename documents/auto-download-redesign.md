@@ -198,6 +198,13 @@ RSS 形态下服务器**无法知道**用户是否真的下载了（投递由客
    静默吞掉。也就是说此前 RSS 只提供磁力 `link`，而 qBittorrent 等客户端的 RSS 自动下载依赖
    enclosure——自动下载很可能一直不生效。现已修正（`Enclosure` 的三个属性还会被直接写入 XML，
    必须传字符串，否则 XML 序列化报 `'int' object has no attribute 'replace'`）。
+3. **`<link>` 放的是种子/磁力，点条目就下载**（对齐蜜柑后修正）：feed 条目的 `<link>` 本该是
+   给人看的那一页（蜜柑是指向 `/Home/Episode/...`），它却被写成了 `magnet_url or torrent_url`，
+   于是在 RSS 阅读器里点标题直接开始下载 .torrent。现改为 `<link>` 指向站内落地页
+   `/episode/{id}`（免认证页面 + 免认证接口 `GET /api/bangumi/episodes/{id}`），种子只通过
+   `<enclosure>` 提供给下载器；仅当某集没有种子文件、只有磁力时才让 `<link>` 退回 magnet。
+   落地页地址由请求 Host 拼出，因此 vite 开发代理不能改 `Host`（`changeOrigin: false`），否则
+   feed 里会出现 `http://backend:8000/...` 这种客户端点不开的内网地址。
 
 **有意未做**
 
